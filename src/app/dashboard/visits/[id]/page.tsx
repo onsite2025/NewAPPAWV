@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { FiCalendar, FiClock, FiUser, FiFileText, FiClipboard, FiEdit, FiDownload, FiTrash2 } from 'react-icons/fi';
 import visitService from '@/services/visitService';
 import templateService from '@/services/templateService';
-import format from 'date-fns/format';
+import { format } from 'date-fns';
 
 export default function VisitDetailPage() {
   const params = useParams();

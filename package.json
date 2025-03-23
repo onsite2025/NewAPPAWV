@@ -27,7 +27,7 @@
     "@types/react-dom": "^19.0.4",
     "axios": "^1.8.4",
     "bcryptjs": "^3.0.2",
-    "date-fns": "^4.1.0",
+    "date-fns": "^2.30.0",
     "dotenv": "^16.4.7",
     "eslint": "^9.23.0",
     "eslint-config-next": "^15.2.3",

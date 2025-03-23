@@ -21,7 +21,7 @@ import {
 } from 'react-icons/fi';
 import visitService, { IVisitResponse, IVisitSearchParams } from '@/services/visitService';
 import patientService from '@/services/patientService';
-import { format } from 'date-fns';
+import format from 'date-fns/format';
 
 interface VisitFilter {
   search: string;

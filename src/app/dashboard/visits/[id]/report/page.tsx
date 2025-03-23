@@ -7,7 +7,7 @@ import { FiPrinter, FiDownload, FiMail, FiEdit, FiArrowLeft, FiUser } from 'reac
 import visitService from '@/services/visitService';
 import templateService from '@/services/templateService';
 import patientService from '@/services/patientService';
-import { format } from 'date-fns';
+import format from 'date-fns/format';
 
 // Remove dynamic imports that are causing linter errors
 export default function VisitReportPage() {

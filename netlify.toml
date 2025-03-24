@@ -48,8 +48,8 @@
   external_node_modules = ["mongoose"]
 
 [functions.api]
-  timeout = 30
-  memory = 1024
+  timeout = 60
+  memory = 2048
   node_bundler = "esbuild"
   external_node_modules = ["mongoose"]
   included_files = ["src/lib/mongodb.ts"] 

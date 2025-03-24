@@ -31,7 +31,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
   try {
     const connectionPromise = connectToDatabase();
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('MongoDB connection timeout')), 5000);
+      setTimeout(() => reject(new Error('MongoDB connection timeout')), 30000); // 30 seconds timeout
     });
 
     await Promise.race([connectionPromise, timeoutPromise]);
@@ -42,7 +42,8 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
       statusCode: 500,
       body: JSON.stringify({ 
         error: 'Database connection failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
       }),
       headers: createHeaders(false)
     };
@@ -126,7 +127,8 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
       statusCode: 500,
       body: JSON.stringify({ 
         error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
       }),
       headers: createHeaders(false)
     };

@@ -47,9 +47,11 @@ export async function connectToDatabase(): Promise<Connection> {
       family: 4, // Force IPv4
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      directConnection: true, // Try direct connection first
       compressors: 'zlib', // Enable compression
       maxIdleTimeMS: 30000, // Close idle connections after 30 seconds
+      ssl: true, // Enable SSL
+      tlsAllowInvalidCertificates: false, // Validate SSL certificates
+      tlsAllowInvalidHostnames: false, // Validate hostnames
     };
 
     // Gracefully handle connection

@@ -9,6 +9,20 @@ import { GET as getUsers, POST as postUser } from '../../src/app/api/users/route
 import { GET as getPractice } from '../../src/app/api/practice/route';
 import { GET as getTemplates } from '../../src/app/api/templates/route';
 
+const createHeaders = (cors: boolean = true): Record<string, string> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  
+  if (cors) {
+    headers['Access-Control-Allow-Origin'] = '*';
+    headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
+    headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
+  }
+  
+  return headers;
+};
+
 const handler: Handler = async (event: HandlerEvent, context: HandlerContext): Promise<HandlerResponse> => {
   // Connect to MongoDB
   try {
@@ -17,14 +31,22 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
     console.error('MongoDB connection error:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Database connection failed' })
+      body: JSON.stringify({ error: 'Database connection failed' }),
+      headers: createHeaders(false)
     };
   }
 
   // Create Next.js request object
+  const headers = new Headers();
+  Object.entries(event.headers || {}).forEach(([key, value]) => {
+    if (value) {
+      headers.append(key, value);
+    }
+  });
+
   const request = new NextRequest(event.rawUrl, {
     method: event.httpMethod,
-    headers: new Headers(event.headers as Record<string, string>),
+    headers,
     body: event.body ? event.body : undefined,
   });
 
@@ -32,12 +54,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Content-Type': 'application/json'
-      }
+      headers: createHeaders()
     };
   }
 
@@ -67,9 +84,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
       return {
         statusCode: 404,
         body: JSON.stringify({ error: 'Not found' }),
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: createHeaders(false)
       };
     }
 
@@ -78,21 +93,14 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
     return {
       statusCode: response.status,
       body: JSON.stringify(responseData),
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
-      }
+      headers: createHeaders()
     };
   } catch (error) {
     console.error('API error:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Internal server error' }),
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers: createHeaders(false)
     };
   }
 };

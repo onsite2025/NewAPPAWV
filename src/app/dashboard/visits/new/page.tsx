@@ -74,8 +74,8 @@ function NewVisitContent() {
     // Fetch templates
     const fetchTemplates = async () => {
       try {
-        const templates = await templateService.getTemplates();
-        setTemplates(templates);
+        const response = await templateService.getTemplates();
+        setTemplates(response.templates);
       } catch (err) {
         console.error('Error fetching templates:', err);
         setError('Failed to load templates');

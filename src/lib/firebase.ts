@@ -10,20 +10,44 @@ import {
   User
 } from 'firebase/auth';
 
+// Add type for global window.ENV
+declare global {
+  interface Window {
+    ENV: {
+      NEXT_PUBLIC_FIREBASE_API_KEY: string;
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: string;
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: string;
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: string;
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: string;
+      NEXT_PUBLIC_FIREBASE_APP_ID: string;
+      NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: string;
+    };
+  }
+}
+
+// Helper function to get config from window.ENV or process.env
+const getConfig = (key: string) => {
+  if (typeof window !== 'undefined' && window.ENV && window.ENV[key as keyof typeof window.ENV]) {
+    return window.ENV[key as keyof typeof window.ENV];
+  }
+  return process.env[key];
+};
+
 // Helper function to validate Firebase config
 const validateFirebaseConfig = () => {
-  const requiredKeys = [
-    'apiKey',
-    'authDomain',
-    'projectId',
-    'storageBucket',
-    'messagingSenderId',
-    'appId'
-  ];
+  // Create config object based on client-side or server-side environment
+  const config = {
+    apiKey: getConfig('NEXT_PUBLIC_FIREBASE_API_KEY'),
+    authDomain: getConfig('NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'),
+    projectId: getConfig('NEXT_PUBLIC_FIREBASE_PROJECT_ID'),
+    storageBucket: getConfig('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'),
+    messagingSenderId: getConfig('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'),
+    appId: getConfig('NEXT_PUBLIC_FIREBASE_APP_ID')
+  };
   
-  const missingKeys = requiredKeys.filter(key => 
-    !process.env[`NEXT_PUBLIC_FIREBASE_${key.toUpperCase()}`]
-  );
+  const missingKeys = Object.entries(config)
+    .filter(([_, value]) => !value)
+    .map(([key]) => key);
   
   if (missingKeys.length > 0) {
     console.error(`Missing required Firebase configuration: ${missingKeys.join(', ')}`);
@@ -34,23 +58,41 @@ const validateFirebaseConfig = () => {
 };
 
 // Firebase configuration
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+const getFirebaseConfig = () => {
+  // Client-side use window.ENV, fallback to process.env
+  if (typeof window !== 'undefined' && window.ENV) {
+    return {
+      apiKey: window.ENV.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: window.ENV.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      projectId: window.ENV.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      storageBucket: window.ENV.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: window.ENV.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      appId: window.ENV.NEXT_PUBLIC_FIREBASE_APP_ID,
+      measurementId: window.ENV.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+    };
+  }
+  
+  // Server-side use process.env
+  return {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  };
 };
 
 // For debugging in production environment
 if (typeof window !== 'undefined') {
+  const config = getFirebaseConfig();
   console.log('Firebase config check:', {
-    hasApiKey: !!firebaseConfig.apiKey,
-    hasProjectId: !!firebaseConfig.projectId,
-    hasAuthDomain: !!firebaseConfig.authDomain,
-    hasAppId: !!firebaseConfig.appId
+    hasApiKey: !!config.apiKey,
+    hasProjectId: !!config.projectId,
+    hasAuthDomain: !!config.authDomain,
+    hasAppId: !!config.appId,
+    fromEnvJS: !!(window.ENV && window.ENV.NEXT_PUBLIC_FIREBASE_API_KEY)
   });
 }
 
@@ -74,9 +116,11 @@ function initializeFirebase() {
   
   try {
     if (!firebaseApp && typeof window !== 'undefined') {
+      const config = getFirebaseConfig();
+      
       // Check if any Firebase apps have been initialized
       if (!getApps().length) {
-        firebaseApp = initializeApp(firebaseConfig);
+        firebaseApp = initializeApp(config);
       } else {
         firebaseApp = getApps()[0];
       }

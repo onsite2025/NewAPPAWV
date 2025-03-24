@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
+import Script from 'next/script';
 
 // Load Inter font with extended latin character set and variable settings
 const inter = Inter({
@@ -44,6 +45,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${jakarta.variable}`}>
+      <head>
+        {/* Load environment variables before anything else */}
+        <Script src="/env-config.js" strategy="beforeInteractive" />
+      </head>
       <body className="font-sans antialiased">
         <Providers>
           {children}

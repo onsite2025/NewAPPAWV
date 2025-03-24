@@ -3,6 +3,12 @@
   publish = ".next"
 
 [build.environment]
+  NODE_VERSION = "18"
+  NPM_VERSION = "9"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+# Environment variables
+[build.environment]
   MONGODB_URI = "mongodb+srv://onsitepcn:8Pkn4n0rUeT25VsQ@cluster1.cv9ak.mongodb.net/annual-wellness-visit"
   NEXT_PUBLIC_FIREBASE_API_KEY = "AIzaSyCjVKYDelG6ASUS6EfYUtOnvJBYhMCA1Lo"
   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "manusawv.firebaseapp.com"
@@ -11,6 +17,8 @@
   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "49788426717"
   NEXT_PUBLIC_FIREBASE_APP_ID = "1:49788426717:web:ef1d243368f20cb8363e34"
   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID = "G-MKGBXDJZFT"
+  NEXTAUTH_URL = "https://finalawv.netlify.app"
+  NEXTAUTH_SECRET = "your-nextauth-secret-key-here"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -25,4 +33,13 @@
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
-  status = 200 
+  status = 200
+
+# Add headers for security
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()" 

@@ -9,6 +9,7 @@ import {
   onAuthStateChanged,
   User
 } from 'firebase/auth';
+import env from './env';
 
 // Add type for global window.ENV
 declare global {
@@ -96,31 +97,22 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// Lazy initialization to avoid SSR issues
+// Initialize Firebase only on client side
 let firebaseApp: FirebaseApp | undefined;
 let analytics: any = null;
 let storage: any = null;
 let auth: any = null;
 
-// Initialize Firebase only on client side
 function initializeFirebase() {
   if (typeof window === 'undefined') {
     return null;
   }
   
-  // Validate config before initialization
-  if (!validateFirebaseConfig()) {
-    console.error('Firebase initialization skipped due to missing configuration');
-    return null;
-  }
-  
   try {
     if (!firebaseApp && typeof window !== 'undefined') {
-      const config = getFirebaseConfig();
-      
       // Check if any Firebase apps have been initialized
       if (!getApps().length) {
-        firebaseApp = initializeApp(config);
+        firebaseApp = initializeApp(env.firebase);
       } else {
         firebaseApp = getApps()[0];
       }

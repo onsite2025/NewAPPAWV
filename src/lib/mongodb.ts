@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose, { Connection } from 'mongoose';
 
 // Check for MongoDB URI
 if (!process.env.MONGODB_URI) {
@@ -12,8 +12,8 @@ const MONGODB_URI = process.env.MONGODB_URI;
  * Global mongoose connection cache
  */
 interface ConnectionCache {
-  conn: mongoose.Connection | null;
-  promise: Promise<mongoose.Connection> | null;
+  conn: Connection | null;
+  promise: Promise<Connection> | null;
 }
 
 // Use a module-scoped variable to cache the connection
@@ -26,7 +26,7 @@ let cached: ConnectionCache = {
  * Connect to MongoDB database
  * This function handles connection retry logic and caching
  */
-async function connectToDatabase(): Promise<mongoose.Connection> {
+async function connectToDatabase(): Promise<Connection> {
   // If we have a cached connection, return it
   if (cached.conn) {
     return cached.conn;
@@ -38,24 +38,30 @@ async function connectToDatabase(): Promise<mongoose.Connection> {
       bufferCommands: false,
       serverSelectionTimeoutMS: 10000, // 10 seconds
       socketTimeoutMS: 45000, // 45 seconds
+      maxPoolSize: 10,
+      minPoolSize: 5,
+      retryWrites: true,
+      retryReads: true,
     };
 
     // Gracefully handle connection
     cached.promise = mongoose.connect(MONGODB_URI, opts)
-      .then(mongoose => {
+      .then((mongoose): Connection => {
         console.log('✅ Connected to MongoDB');
         return mongoose.connection;
       })
-      .catch(err => {
+      .catch((err: Error) => {
         console.error('❌ MongoDB connection error:', err.message);
         
         // Provide specific error messages based on error code
-        if (err.code === 8000) {
+        if ((err as any).code === 8000) {
           console.error('Authentication failed. Please check your MongoDB username and password.');
-        } else if (err.code === 'ENOTFOUND') {
+        } else if ((err as any).code === 'ENOTFOUND') {
           console.error('Server not found. Please check your MongoDB connection string.');
-        } else if (err.code === 'ETIMEDOUT') {
+        } else if ((err as any).code === 'ETIMEDOUT') {
           console.error('Connection timed out. Please check your network and MongoDB server status.');
+        } else if ((err as any).code === 'ECONNREFUSED') {
+          console.error('Connection refused. Please check if MongoDB server is running.');
         }
         
         // Reset promise so next call will try again
@@ -71,14 +77,29 @@ async function connectToDatabase(): Promise<mongoose.Connection> {
     // Reset promise for next attempt
     cached.promise = null;
     
-    // In development mode, provide more context for debugging
-    if (process.env.NODE_ENV === 'development') {
-      console.error('⚠️ Using development mode without MongoDB connection. Some features may not work properly.');
-      console.error('Please ensure your MongoDB connection details are correct in .env.local');
-    }
+    // Log detailed error information
+    const error = err as Error;
+    console.error('Failed to connect to MongoDB:', {
+      error: error.message,
+      code: (err as any).code,
+      stack: error.stack,
+      uri: MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//****:****@') // Hide credentials
+    });
     
     throw err;
   }
 }
+
+// Handle process termination
+process.on('SIGINT', async () => {
+  try {
+    await mongoose.connection.close();
+    console.log('MongoDB connection closed through app termination');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during MongoDB connection closure:', err);
+    process.exit(1);
+  }
+});
 
 export default connectToDatabase; 

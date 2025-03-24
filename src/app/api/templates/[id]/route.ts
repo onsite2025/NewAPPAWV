@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import Template from '@/models/Template';
 import { getServerSession } from 'next-auth';
@@ -10,8 +10,8 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 
 // GET: Retrieve a specific template
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: { id: string } }
 ) {
   try {
     await connectToDatabase();
@@ -24,7 +24,7 @@ export async function GET(
       }
     }
     
-    const { id } = params;
+    const { id } = context.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid template ID' }, { status: 400 });
     }
@@ -58,7 +58,7 @@ export async function GET(
       throw populateError;
     }
   } catch (error) {
-    console.error(`Error fetching template ${params.id}:`, error);
+    console.error(`Error fetching template ${context.params.id}:`, error);
     return NextResponse.json(
       { error: 'Failed to fetch template' },
       { status: 500 }
@@ -68,8 +68,8 @@ export async function GET(
 
 // PUT: Update a template
 export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: { id: string } }
 ) {
   try {
     await connectToDatabase();
@@ -82,12 +82,12 @@ export async function PUT(
       }
     }
     
-    const { id } = params;
+    const { id } = context.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid template ID' }, { status: 400 });
     }
     
-    const body = await req.json();
+    const body = await request.json();
     
     // Validate required fields
     if (!body.name || !body.sections || !Array.isArray(body.sections)) {
@@ -133,7 +133,7 @@ export async function PUT(
     
     return NextResponse.json(updatedTemplate);
   } catch (error) {
-    console.error(`Error updating template ${params.id}:`, error);
+    console.error(`Error updating template ${context.params.id}:`, error);
     return NextResponse.json(
       { error: 'Failed to update template' },
       { status: 500 }
@@ -143,8 +143,8 @@ export async function PUT(
 
 // DELETE: Remove a template (mark as inactive)
 export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: { id: string } }
 ) {
   try {
     await connectToDatabase();
@@ -157,7 +157,7 @@ export async function DELETE(
       }
     }
     
-    const { id } = params;
+    const { id } = context.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid template ID' }, { status: 400 });
     }
@@ -171,7 +171,7 @@ export async function DELETE(
     
     return NextResponse.json({ message: 'Template deleted successfully' });
   } catch (error) {
-    console.error(`Error deleting template ${params.id}:`, error);
+    console.error(`Error deleting template ${context.params.id}:`, error);
     return NextResponse.json(
       { error: 'Failed to delete template' },
       { status: 500 }

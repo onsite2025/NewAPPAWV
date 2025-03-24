@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import mongoose from 'mongoose';
 
@@ -35,14 +35,11 @@ const PatientSchema = new mongoose.Schema({
 const Patient = mongoose.models.Patient || mongoose.model('Patient', PatientSchema);
 
 // GET: Retrieve a specific patient
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, context: { params: { id: string } }) {
   try {
     await connectToDatabase();
     
-    const id = params.id;
+    const id = context.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
     }
@@ -55,7 +52,7 @@ export async function GET(
     
     return NextResponse.json(patient);
   } catch (error) {
-    console.error(`Error fetching patient ${params.id}:`, error);
+    console.error(`Error fetching patient ${context.params.id}:`, error);
     return NextResponse.json(
       { error: 'Failed to fetch patient' },
       { status: 500 }
@@ -64,14 +61,11 @@ export async function GET(
 }
 
 // PUT: Update a patient
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, context: { params: { id: string } }) {
   try {
     await connectToDatabase();
     
-    const id = params.id;
+    const id = context.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
     }
@@ -99,7 +93,7 @@ export async function PUT(
     
     return NextResponse.json(updatedPatient);
   } catch (error) {
-    console.error(`Error updating patient ${params.id}:`, error);
+    console.error(`Error updating patient ${context.params.id}:`, error);
     return NextResponse.json(
       { error: 'Failed to update patient' },
       { status: 500 }
@@ -108,14 +102,11 @@ export async function PUT(
 }
 
 // DELETE: Delete a patient
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
   try {
     await connectToDatabase();
     
-    const id = params.id;
+    const id = context.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
     }
@@ -132,7 +123,7 @@ export async function DELETE(
       { status: 200 }
     );
   } catch (error) {
-    console.error(`Error deleting patient ${params.id}:`, error);
+    console.error(`Error deleting patient ${context.params.id}:`, error);
     return NextResponse.json(
       { error: 'Failed to delete patient' },
       { status: 500 }

@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { FiPlus, FiEdit, FiCopy, FiTrash2, FiSearch } from 'react-icons/fi';
 import { ITemplateResponse } from '@/models/Template';
-import templateService from '@/services/templateService';
+import templateService, { TemplateSearchParams } from '@/services/templateService';
 
 // Interface for template list items
 interface TemplateListItem {
@@ -47,14 +47,19 @@ function TemplatesContent() {
     fetchTemplates(search);
   }, [search]);
   
-  const fetchTemplates = async (search?: string) => {
+  const fetchTemplates = async (searchTerm?: string) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const data = await templateService.getTemplates(search);
+      const params: TemplateSearchParams = {};
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
       
-      if (!data || !Array.isArray(data)) {
+      const response = await templateService.getTemplates(params);
+      
+      if (!response || !response.templates) {
         setError('Invalid template data received');
         setTemplates([]);
         setIsLoading(false);
@@ -62,7 +67,7 @@ function TemplatesContent() {
       }
       
       // Map API data to UI template list items
-      const templateItems: TemplateListItem[] = data.map((template: ITemplateResponse) => {
+      const templateItems: TemplateListItem[] = response.templates.map((template: ITemplateResponse) => {
         // Ensure sections exists and is an array
         const sections = Array.isArray(template.sections) ? template.sections : [];
         
@@ -138,7 +143,7 @@ function TemplatesContent() {
         createdBy: null
       };
       
-      const newTemplate = await templateService.createTemplate(duplicatedTemplate);
+      await templateService.createTemplate(duplicatedTemplate);
       fetchTemplates(search);
     } catch (err) {
       console.error('Error duplicating template:', err);
@@ -293,4 +298,4 @@ export default function TemplatesListPage() {
       <TemplatesContent />
     </Suspense>
   );
-} 
+}

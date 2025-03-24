@@ -86,7 +86,7 @@ export async function GET(request: Request) {
     
     // If no settings exist yet, create default settings
     if (!practiceSettings) {
-      practiceSettings = new PracticeSettings({
+      const newSettings = new PracticeSettings({
         name: 'Healthcare Wellness Center',
         address: '123 Medical Drive',
         city: 'Healthville',
@@ -97,8 +97,8 @@ export async function GET(request: Request) {
         website: 'www.healthcarewellness.com'
       });
       
-      await practiceSettings.save();
-      practiceSettings = practiceSettings.toObject();
+      await newSettings.save();
+      practiceSettings = newSettings.toObject();
     }
     
     return NextResponse.json(practiceSettings);
@@ -153,16 +153,17 @@ export async function PUT(request: Request) {
     
     // If no settings exist yet, create a new settings document
     if (!practiceSettings) {
-      practiceSettings = new PracticeSettings(body);
+      const newSettings = new PracticeSettings(body);
+      await newSettings.save();
+      return NextResponse.json(newSettings);
     } else {
       // Update existing settings
       Object.assign(practiceSettings, body);
+      
+      // Save settings
+      await practiceSettings.save();
+      return NextResponse.json(practiceSettings);
     }
-    
-    // Save settings
-    await practiceSettings.save();
-    
-    return NextResponse.json(practiceSettings);
   } catch (error) {
     console.error('Error updating practice settings:', error);
     return NextResponse.json(

@@ -100,4 +100,7 @@ process.on('SIGINT', async () => {
     console.error('Error during MongoDB connection closure:', err);
     process.exit(1);
   }
-}); 
+});
+
+// Export both named and default exports
+export default connectToDatabase; 

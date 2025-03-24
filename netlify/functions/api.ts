@@ -1,6 +1,6 @@
 import { Handler, HandlerEvent, HandlerContext, HandlerResponse } from '@netlify/functions';
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '../../src/lib/mongodb';
+import connectToDatabase from '../../src/lib/mongodb';
 
 // Import your API route handlers
 import { GET as getPatients, POST as postPatient } from '../../src/app/api/patients/route';

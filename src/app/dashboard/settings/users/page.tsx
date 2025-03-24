@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   FiPlus, 
@@ -45,7 +45,18 @@ const getStatusBadgeClass = (status: string) => {
   }
 };
 
-export default function UserManagementPage() {
+// Loading component for Suspense fallback
+function UsersLoading() {
+  return (
+    <div className="flex flex-col items-center justify-center my-8">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <p className="mt-4 text-gray-600">Loading users...</p>
+    </div>
+  );
+}
+
+// Main component content extracted to be wrapped in Suspense
+function UsersContent() {
   const { user } = useAuth();
   const router = useRouter();
   const [users, setUsers] = useState<IUser[]>([]);
@@ -71,6 +82,9 @@ export default function UserManagementPage() {
   
   // Load users when component mounts
   useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') return;
+    
     const loadData = async () => {
       if (!user) return;
       
@@ -674,5 +688,13 @@ export default function UserManagementPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function UserManagementPage() {
+  return (
+    <Suspense fallback={<UsersLoading />}>
+      <UsersContent />
+    </Suspense>
   );
 } 

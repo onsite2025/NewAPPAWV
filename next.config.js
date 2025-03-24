@@ -1,15 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Output: 'export' for static site generation
+  output: 'standalone',
+  
+  // Modern config for handling dynamic routes
   experimental: {
-    // Prevent static generation of dynamic routes
-    disableStaticGeneration: true,
+    // These features are supported in newer Next.js
+    serverComponentsExternalPackages: ['date-fns'],
   },
-  // Configure unstable_allowDynamic to prevent prerendering of specific files
-  unstable_allowDynamic: [
-    '**/node_modules/date-fns/**',
-    '**/src/app/dashboard/visits/**',
-    '**/src/services/**',
-  ],
+  
   // Disable image optimization for improved build compatibility
   images: {
     unoptimized: true,

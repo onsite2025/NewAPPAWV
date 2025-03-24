@@ -10,6 +10,7 @@ import {
   User
 } from 'firebase/auth';
 
+// Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -20,27 +21,59 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-let firebaseApp: FirebaseApp;
+// Lazy initialization to avoid SSR issues
+let firebaseApp: FirebaseApp | undefined;
 let analytics: any = null;
+let storage: any = null;
+let auth: any = null;
 
-// Initialize Firebase if it hasn't been already
-if (!getApps().length) {
-  firebaseApp = initializeApp(firebaseConfig);
+// Initialize Firebase only on client side
+function initializeFirebase() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
   
-  // Only initialize analytics on the client side
-  if (typeof window !== 'undefined') {
+  if (!firebaseApp && typeof window !== 'undefined') {
+    // Check if any Firebase apps have been initialized
+    if (!getApps().length) {
+      firebaseApp = initializeApp(firebaseConfig);
+    } else {
+      firebaseApp = getApps()[0];
+    }
+    
+    // Only initialize analytics on the client side
     try {
       analytics = getAnalytics(firebaseApp);
     } catch (error) {
       console.error('Error initializing analytics:', error);
     }
+    
+    storage = getStorage(firebaseApp);
+    auth = getAuth(firebaseApp);
   }
-} else {
-  firebaseApp = getApps()[0];
+  
+  return firebaseApp;
 }
 
-const storage = getStorage(firebaseApp);
-const auth = getAuth(firebaseApp);
+// Ensure Firebase is initialized before exporting
+const getFirebaseApp = () => {
+  if (!firebaseApp) {
+    return initializeFirebase();
+  }
+  return firebaseApp;
+};
+
+// Get auth instance
+const getFirebaseAuth = () => {
+  getFirebaseApp();
+  return auth;
+};
+
+// Get storage instance
+const getFirebaseStorage = () => {
+  getFirebaseApp();
+  return storage;
+};
 
 /**
  * Upload a file to Firebase Storage
@@ -49,8 +82,11 @@ const auth = getAuth(firebaseApp);
  * @returns URL of the uploaded file
  */
 export async function uploadFile(file: File, path: string): Promise<string> {
+  const storageInstance = getFirebaseStorage();
+  if (!storageInstance) throw new Error('Firebase Storage not initialized');
+  
   try {
-    const storageRef = ref(storage, path);
+    const storageRef = ref(storageInstance, path);
     await uploadBytes(storageRef, file);
     const downloadURL = await getDownloadURL(storageRef);
     return downloadURL;
@@ -67,8 +103,11 @@ export async function uploadFile(file: File, path: string): Promise<string> {
  * @returns User credentials
  */
 export async function loginWithEmail(email: string, password: string) {
+  const authInstance = getFirebaseAuth();
+  if (!authInstance) throw new Error('Firebase Auth not initialized');
+  
   try {
-    return await signInWithEmailAndPassword(auth, email, password);
+    return await signInWithEmailAndPassword(authInstance, email, password);
   } catch (error) {
     console.error('Error signing in:', error);
     throw error;
@@ -82,8 +121,11 @@ export async function loginWithEmail(email: string, password: string) {
  * @returns User credentials
  */
 export async function registerWithEmail(email: string, password: string) {
+  const authInstance = getFirebaseAuth();
+  if (!authInstance) throw new Error('Firebase Auth not initialized');
+  
   try {
-    return await createUserWithEmailAndPassword(auth, email, password);
+    return await createUserWithEmailAndPassword(authInstance, email, password);
   } catch (error) {
     console.error('Error registering user:', error);
     throw error;
@@ -94,8 +136,11 @@ export async function registerWithEmail(email: string, password: string) {
  * Sign out the current user
  */
 export async function logout() {
+  const authInstance = getFirebaseAuth();
+  if (!authInstance) throw new Error('Firebase Auth not initialized');
+  
   try {
-    await signOut(auth);
+    await signOut(authInstance);
   } catch (error) {
     console.error('Error signing out:', error);
     throw error;
@@ -108,7 +153,26 @@ export async function logout() {
  * @returns Unsubscribe function
  */
 export function onAuthChange(callback: (user: User | null) => void) {
-  return onAuthStateChanged(auth, callback);
+  const authInstance = getFirebaseAuth();
+  if (!authInstance) {
+    // If auth is not initialized, just call the callback with null
+    callback(null);
+    return () => {};
+  }
+  
+  return onAuthStateChanged(authInstance, callback);
 }
 
-export { storage, ref, getDownloadURL, analytics, auth }; 
+// Initialize Firebase when this module is imported on client side
+if (typeof window !== 'undefined') {
+  initializeFirebase();
+}
+
+export { 
+  getFirebaseApp, 
+  getFirebaseAuth as auth, 
+  getFirebaseStorage as storage, 
+  ref, 
+  getDownloadURL, 
+  analytics 
+}; 

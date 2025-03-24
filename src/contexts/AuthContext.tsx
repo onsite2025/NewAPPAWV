@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
-import { onAuthChange, auth } from '@/lib/firebase';
+import { onAuthChange } from '@/lib/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 
 interface AuthContextType {
@@ -24,6 +24,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
+    // Only run auth on client side
+    if (typeof window === 'undefined') return;
+
     const unsubscribe = onAuthChange((authUser) => {
       setUser(authUser);
       setLoading(false);
@@ -34,6 +37,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Protected routes logic
   useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') return;
+    
     if (!loading) {
       const publicPaths = ['/', '/login', '/register'];
       const isPublicPath = publicPaths.includes(pathname);
@@ -49,8 +55,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, loading, pathname, router]);
 
   const logout = async () => {
+    // Import dynamically to avoid SSR issues
+    const { logout: firebaseLogout } = await import('@/lib/firebase');
+    
     try {
-      await auth.signOut();
+      await firebaseLogout();
       router.push('/login');
     } catch (error) {
       console.error('Error logging out:', error);

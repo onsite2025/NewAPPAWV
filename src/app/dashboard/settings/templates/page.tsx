@@ -15,8 +15,7 @@ import {
   FiXCircle
 } from 'react-icons/fi';
 import { useAuth } from '@/contexts/AuthContext';
-import templateService from '@/services/templateService';
-import { ITemplateResponse as Template } from '@/models/Template';
+import templateService, { Template, TemplatesResponse } from '@/services/templateService';
 import userService from '@/services/userService';
 
 export default function TemplateManagementPage() {
@@ -53,8 +52,8 @@ export default function TemplateManagementPage() {
         
         // Fetch templates
         const templatesData = await templateService.getTemplates();
-        setTemplates(templatesData);
-        setFilteredTemplates(templatesData);
+        setTemplates(templatesData.templates);
+        setFilteredTemplates(templatesData.templates);
       } catch (err) {
         console.error('Error loading templates:', err);
         setError('Failed to load templates. Please try again.');

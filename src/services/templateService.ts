@@ -27,11 +27,15 @@ const saveLocalTemplates = (templates: ITemplateResponse[]): void => {
 
 interface Template {
   _id: string;
+  id?: string;
   name: string;
   description?: string;
   sections: any[];
   createdAt: string;
   updatedAt: string;
+  isActive: boolean;
+  createdBy: string | null;
+  version: number;
 }
 
 interface TemplatesResponse {

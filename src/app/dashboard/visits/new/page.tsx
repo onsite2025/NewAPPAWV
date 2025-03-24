@@ -64,6 +64,9 @@ function NewVisitContent() {
     const fetchPatients = async () => {
       try {
         const response = await patientService.getPatients({ limit: 100 });
+        if (!response || !response.patients) {
+          throw new Error('Invalid patient data received');
+        }
         setPatients(response.patients);
       } catch (err) {
         console.error('Error fetching patients:', err);
@@ -75,6 +78,13 @@ function NewVisitContent() {
     const fetchTemplates = async () => {
       try {
         const response = await templateService.getTemplates();
+        console.log('Template response:', response); // Debug log
+        
+        if (!response || !Array.isArray(response.templates)) {
+          console.error('Invalid template response:', response);
+          throw new Error('Invalid template data received');
+        }
+        
         setTemplates(response.templates);
       } catch (err) {
         console.error('Error fetching templates:', err);

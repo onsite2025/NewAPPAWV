@@ -70,7 +70,27 @@ const templateService = {
         throw new Error('Failed to fetch templates');
       }
       
-      return await response.json();
+      const data = await response.json();
+      
+      // If the response is an array, wrap it in the expected format
+      if (Array.isArray(data)) {
+        return {
+          templates: data,
+          pagination: {
+            total: data.length,
+            page: 1,
+            limit: data.length,
+            pages: 1
+          }
+        };
+      }
+      
+      // If it's already in the correct format, return it
+      if (data && Array.isArray(data.templates)) {
+        return data;
+      }
+      
+      throw new Error('Invalid template data received');
     } catch (error) {
       console.error('Error fetching templates:', error);
       throw error;

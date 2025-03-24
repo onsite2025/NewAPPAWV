@@ -26,6 +26,7 @@
   "homepage": "https://github.com/onsite2025/NewAPPAWV#readme",
   "description": "",
   "dependencies": {
+    "@netlify/functions": "^3.0.4",
     "@types/node": "^22.13.11",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",

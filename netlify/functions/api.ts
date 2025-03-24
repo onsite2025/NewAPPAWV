@@ -35,11 +35,15 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
     });
 
     await Promise.race([connectionPromise, timeoutPromise]);
+    console.log('✅ MongoDB connection successful');
   } catch (error) {
-    console.error('MongoDB connection error:', error);
+    console.error('❌ MongoDB connection error:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Database connection failed' }),
+      body: JSON.stringify({ 
+        error: 'Database connection failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
       headers: createHeaders(false)
     };
   }
@@ -69,6 +73,19 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
   try {
     // Route the request to the appropriate handler
     const path = event.path.replace('/.netlify/functions/api', '');
+    
+    // Add a test endpoint to verify MongoDB connection
+    if (path === '/test-connection') {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ 
+          status: 'success',
+          message: 'MongoDB connection is working',
+          timestamp: new Date().toISOString()
+        }),
+        headers: createHeaders()
+      };
+    }
     
     let response: NextResponse;
     
@@ -107,7 +124,10 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
     console.error('API error:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' }),
+      body: JSON.stringify({ 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
       headers: createHeaders(false)
     };
   }

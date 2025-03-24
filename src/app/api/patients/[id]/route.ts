@@ -35,10 +35,7 @@ const PatientSchema = new mongoose.Schema({
 const Patient = mongoose.models.Patient || mongoose.model('Patient', PatientSchema);
 
 // GET: Retrieve a specific patient
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request, { params }) {
   try {
     await connectToDatabase();
     
@@ -64,10 +61,7 @@ export async function GET(
 }
 
 // PUT: Update a patient
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request, { params }) {
   try {
     await connectToDatabase();
     
@@ -108,10 +102,7 @@ export async function PUT(
 }
 
 // DELETE: Delete a patient
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request, { params }) {
   try {
     await connectToDatabase();
     

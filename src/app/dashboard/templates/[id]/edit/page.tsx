@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { FiPlus, FiTrash2, FiArrowUp, FiArrowDown, FiSave, FiArrowLeft } from 'react-icons/fi';
-import templateService from '@/services/templateService';
+import templateService, { Template } from '@/services/templateService';
 import { ITemplateResponse, ISection } from '@/models/Template';
 import { uuidv4 } from '@/utils/uuid';
 
@@ -72,50 +72,68 @@ const convertApiToEditorTemplate = (apiTemplate: ITemplateResponse | null): Edit
     return createEmptyTemplate();
   }
 
-  // Map sections
-  const sections = apiTemplate.sections.map(section => ({
-    id: section.id,
-    title: section.title,
-    description: section.description || '',
-    questions: section.questions.map(q => ({
-      id: q.id,
-      text: q.text,
-      type: convertQuestionType(q.type),
-      required: q.required,
-      options: q.options?.map(opt => ({
-        id: opt.value,
-        text: opt.label,
-        recommendation: '', // Not directly available in API model
-      })) || [],
-      minValue: 0, // Default values
-      maxValue: 10,
-      condition: q.conditionalLogic ? {
-        questionId: q.conditionalLogic.dependsOn,
-        operator: q.conditionalLogic.showWhen.operator === 'equals' ? 'equals' : 'notEquals' as const,
-        value: q.conditionalLogic.showWhen.value.toString(),
-      } : undefined,
-      includeRecommendation: false, // Not directly available in API model
-    })),
-  }));
+  // Ensure sections exists and is an array
+  const sections = Array.isArray(apiTemplate.sections) ? apiTemplate.sections : [];
+
+  // Map sections with proper error handling
+  const mappedSections: Section[] = sections.map(section => {
+    // Ensure questions exists and is an array
+    const questions = Array.isArray(section.questions) ? section.questions : [];
+
+    return {
+      id: section.id || uuidv4(),
+      title: section.title || 'Untitled Section',
+      description: section.description || '',
+      questions: questions.map(q => ({
+        id: q.id || uuidv4(),
+        text: q.text || '',
+        type: convertQuestionType(q.type || 'text'),
+        required: q.required || false,
+        options: Array.isArray(q.options) ? q.options.map(opt => ({
+          id: opt.value || uuidv4(),
+          text: opt.label || '',
+          recommendation: '', // Not directly available in API model
+        })) : [],
+        minValue: 0, // Default values
+        maxValue: 10,
+        condition: q.conditionalLogic ? {
+          questionId: q.conditionalLogic.dependsOn || '',
+          operator: q.conditionalLogic.showWhen?.operator === 'equals' ? 'equals' as const : 'notEquals' as const,
+          value: q.conditionalLogic.showWhen?.value?.toString() || '',
+        } : undefined,
+        includeRecommendation: false, // Not directly available in API model
+      })),
+    };
+  });
+
+  // If no sections exist, create a default one
+  if (mappedSections.length === 0) {
+    mappedSections.push({
+      id: uuidv4(),
+      title: 'New Section',
+      description: '',
+      questions: [],
+    });
+  }
 
   // Use proper type assertion for _id
   const id = apiTemplate._id?.toString() || apiTemplate.id || 'new';
 
   return {
     id,
-    name: apiTemplate.name,
+    name: apiTemplate.name || '',
     description: apiTemplate.description || '',
-    sections: sections as unknown as Section[],
+    sections: mappedSections,
   };
 };
 
 // Convert editor template to API format
-const convertEditorToApiTemplate = (editorTemplate: EditorTemplate): Partial<ITemplateResponse> => {
-  // Map sections
+const convertEditorToApiTemplate = (editorTemplate: EditorTemplate): Omit<Template, '_id' | 'createdAt' | 'updatedAt'> => {
+  // Map sections with proper error handling
   const sections = editorTemplate.sections.map(section => ({
-    id: section.id,
-    title: section.title,
-    description: section.description,
+    id: section.id || uuidv4(),
+    title: section.title || 'Untitled Section',
+    description: section.description || '',
     questions: section.questions.map(q => {
       // Handle different question types
       let type: 'text' | 'multipleChoice' | 'numeric' | 'date' | 'boolean';
@@ -139,18 +157,18 @@ const convertEditorToApiTemplate = (editorTemplate: EditorTemplate): Partial<ITe
       }
       
       return {
-        id: q.id,
-        text: q.text,
+        id: q.id || uuidv4(),
+        text: q.text || '',
         type,
-        required: q.required,
-        options: q.options?.map(opt => ({
-          value: opt.id,
-          label: opt.text,
-        })),
+        required: q.required || false,
+        options: Array.isArray(q.options) ? q.options.map(opt => ({
+          value: opt.id || uuidv4(),
+          label: opt.text || '',
+        })) : [],
         conditionalLogic: q.condition ? {
-          dependsOn: q.condition.questionId,
+          dependsOn: q.condition.questionId || '',
           showWhen: {
-            value: q.condition.value,
+            value: q.condition.value || '',
             operator: q.condition.operator === 'equals' ? 
               ('equals' as const) : 
               ('notEquals' as const),
@@ -161,11 +179,12 @@ const convertEditorToApiTemplate = (editorTemplate: EditorTemplate): Partial<ITe
   }));
 
   return {
-    name: editorTemplate.name,
-    description: editorTemplate.description,
-    sections: sections as unknown as ISection[],
+    name: editorTemplate.name || 'Untitled Template',
+    description: editorTemplate.description || '',
+    sections,
     isActive: true,
-    version: 1
+    version: 1,
+    createdBy: null // Will be set by the backend
   };
 };
 
@@ -251,20 +270,14 @@ export default function EditTemplatePage() {
       const apiTemplate = convertEditorToApiTemplate(template);
       
       if (isNew) {
-        // Create new template with required fields
-        await templateService.createTemplate({
-          name: apiTemplate.name || 'Untitled Template',
-          description: apiTemplate.description,
-          sections: apiTemplate.sections as ISection[],
-          isActive: apiTemplate.isActive || false,
-          version: apiTemplate.version || 1,
-          createdBy: 'system' // Would be user ID in a real application
-        });
+        // Create new template
+        await templateService.createTemplate(apiTemplate);
       } else {
         // Update existing template
         await templateService.updateTemplate(templateId, apiTemplate);
       }
       
+      // Redirect to templates list
       router.push('/dashboard/templates');
     } catch (err) {
       console.error('Error saving template:', err);

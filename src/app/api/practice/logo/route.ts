@@ -5,11 +5,66 @@ import mongoose from 'mongoose';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-// Get the Practice model
-const PracticeSettings = mongoose.models.PracticeSettings || mongoose.model('PracticeSettings');
+// Practice Settings model schema
+const PracticeSettingsSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  address: {
+    type: String,
+    required: true
+  },
+  city: {
+    type: String,
+    required: true
+  },
+  state: {
+    type: String,
+    required: true
+  },
+  zipCode: {
+    type: String,
+    required: true
+  },
+  phone: {
+    type: String,
+    required: true
+  },
+  email: {
+    type: String,
+    required: true
+  },
+  website: {
+    type: String
+  },
+  taxId: {
+    type: String
+  },
+  npi: {
+    type: String
+  },
+  logo: {
+    type: String
+  }
+}, {
+  timestamps: true
+});
+
+// Get the Practice model (provide the schema to ensure it's defined)
+const PracticeSettings = mongoose.models.PracticeSettings || mongoose.model('PracticeSettings', PracticeSettingsSchema);
 
 // Get the User model
-const User = mongoose.models.User || mongoose.model('User');
+const UserSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  role: { type: String, enum: ['admin', 'provider', 'staff'], default: 'staff' },
+  // Add other fields as needed
+}, {
+  timestamps: true
+});
+
+const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
 // Helper function to check if the user has provider or admin role
 const isUserAdminOrProvider = async (session: any) => {

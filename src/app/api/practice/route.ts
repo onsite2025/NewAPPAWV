@@ -55,7 +55,16 @@ const PracticeSettingsSchema = new mongoose.Schema({
 const PracticeSettings = mongoose.models.PracticeSettings || mongoose.model('PracticeSettings', PracticeSettingsSchema);
 
 // Get the User model
-const User = mongoose.models.User || mongoose.model('User');
+const UserSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  role: { type: String, enum: ['admin', 'provider', 'staff'], default: 'staff' },
+  // Add other fields as needed
+}, {
+  timestamps: true
+});
+
+const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
 // Helper function to check if the user has provider or admin role
 const isUserAdminOrProvider = async (session: any) => {

@@ -3,7 +3,7 @@
 // Prevent static rendering of this route
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { FiCalendar, FiClock, FiUser, FiClipboard } from 'react-icons/fi';
@@ -30,7 +30,18 @@ interface Patient {
 
 type Template = ITemplateResponse;
 
-export default function NewVisitPage() {
+// Loading component for Suspense fallback
+function NewVisitLoading() {
+  return (
+    <div className="flex flex-col items-center justify-center my-8">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <p className="mt-4 text-gray-600">Loading visit form...</p>
+    </div>
+  );
+}
+
+// Main component content extracted to be wrapped in Suspense
+function NewVisitContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const patientId = searchParams.get('patientId');
@@ -241,5 +252,13 @@ export default function NewVisitPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function NewVisitPage() {
+  return (
+    <Suspense fallback={<NewVisitLoading />}>
+      <NewVisitContent />
+    </Suspense>
   );
 } 

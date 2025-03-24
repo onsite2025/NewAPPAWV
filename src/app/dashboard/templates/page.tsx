@@ -3,7 +3,7 @@
 // Prevent static rendering of this route
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { FiPlus, FiEdit, FiCopy, FiTrash2, FiSearch } from 'react-icons/fi';
@@ -22,7 +22,18 @@ interface TemplateListItem {
   createdBy: any; // Type will be refined when user authentication is implemented
 }
 
-export default function TemplatesListPage() {
+// Loading component for Suspense fallback
+function TemplatesLoading() {
+  return (
+    <div className="flex flex-col items-center justify-center my-8">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <p className="mt-4 text-gray-600">Loading templates...</p>
+    </div>
+  );
+}
+
+// Main component content extracted to be wrapped in Suspense
+function TemplatesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchQuery = searchParams?.get('search') || '';
@@ -249,19 +260,19 @@ export default function TemplatesListPage() {
                           href={`/dashboard/templates/${template.id}/edit`}
                           className="text-blue-600 hover:text-blue-900"
                         >
-                          <FiEdit className="w-5 h-5" />
+                          <FiEdit className="w-5 h-5" title="Edit" />
                         </Link>
                         <button 
                           onClick={() => handleDuplicateTemplate(template.id)}
                           className="text-green-600 hover:text-green-900"
                         >
-                          <FiCopy className="w-5 h-5" />
+                          <FiCopy className="w-5 h-5" title="Duplicate" />
                         </button>
                         <button 
                           onClick={() => handleDeleteTemplate(template.id)}
                           className="text-red-600 hover:text-red-900"
                         >
-                          <FiTrash2 className="w-5 h-5" />
+                          <FiTrash2 className="w-5 h-5" title="Delete" />
                         </button>
                       </div>
                     </td>
@@ -273,5 +284,13 @@ export default function TemplatesListPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function TemplatesListPage() {
+  return (
+    <Suspense fallback={<TemplatesLoading />}>
+      <TemplatesContent />
+    </Suspense>
   );
 } 

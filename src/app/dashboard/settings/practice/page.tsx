@@ -31,8 +31,10 @@ export default function PracticeSettingsPage() {
         
         // Get practice settings
         const practiceData = await practiceService.getPracticeSettings();
-        setSettings(practiceData);
-        setLogoPreview(practiceData.logo || null);
+        if (practiceData) {
+          setSettings(practiceData);
+          setLogoPreview(practiceData.logo || null);
+        }
       } catch (err) {
         console.error('Error loading practice settings:', err);
         setError('Failed to load practice settings. Please try again.');
@@ -123,7 +125,10 @@ export default function PracticeSettingsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!settings) return;
+    if (!settings) {
+      setError('No settings to save. Please try again.');
+      return;
+    }
     
     try {
       setIsSaving(true);

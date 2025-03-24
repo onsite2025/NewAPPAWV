@@ -31,8 +31,8 @@ interface Template {
   name: string;
   description?: string;
   sections: any[];
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
   isActive: boolean;
   createdBy: string | null;
   version: number;
@@ -79,7 +79,16 @@ const templateService = {
         throw new Error('Failed to fetch templates');
       }
       
-      return await response.json();
+      const data = await response.json();
+      
+      // Convert date strings to Date objects
+      data.templates = data.templates.map((template: any) => ({
+        ...template,
+        createdAt: new Date(template.createdAt),
+        updatedAt: new Date(template.updatedAt)
+      }));
+      
+      return data;
     } catch (error) {
       console.error('Error fetching templates:', error);
       throw error;
@@ -94,7 +103,14 @@ const templateService = {
         throw new Error('Failed to fetch template');
       }
       
-      return await response.json();
+      const data = await response.json();
+      
+      // Convert date strings to Date objects
+      return {
+        ...data,
+        createdAt: new Date(data.createdAt),
+        updatedAt: new Date(data.updatedAt)
+      };
     } catch (error) {
       console.error(`Error fetching template ${id}:`, error);
       throw error;

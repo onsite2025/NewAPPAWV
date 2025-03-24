@@ -34,14 +34,10 @@ const PatientSchema = new mongoose.Schema({
 // Get the Patient model (create if it doesn't exist)
 const Patient = mongoose.models.Patient || mongoose.model('Patient', PatientSchema);
 
-interface Params {
-  id: string;
-}
-
 // GET: Retrieve a specific patient
 export async function GET(
   request: Request,
-  { params }: { params: Params }
+  { params }: { params: { id: string } }
 ) {
   try {
     await connectToDatabase();
@@ -70,7 +66,7 @@ export async function GET(
 // PUT: Update a patient
 export async function PUT(
   request: Request,
-  { params }: { params: Params }
+  { params }: { params: { id: string } }
 ) {
   try {
     await connectToDatabase();
@@ -114,7 +110,7 @@ export async function PUT(
 // DELETE: Delete a patient
 export async function DELETE(
   request: Request,
-  { params }: { params: Params }
+  { params }: { params: { id: string } }
 ) {
   try {
     await connectToDatabase();

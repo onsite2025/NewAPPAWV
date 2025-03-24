@@ -99,7 +99,7 @@ const templateService = {
 
   async getTemplateById(id: string): Promise<Template> {
     try {
-      const response = await fetch(`${BASE_URL}/templates/${id}`);
+      const response = await fetch(`${BASE_URL}/templates?id=${id}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch template');
@@ -123,7 +123,8 @@ const templateService = {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to create template');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create template');
       }
       
       return await response.json();
@@ -135,7 +136,7 @@ const templateService = {
 
   async updateTemplate(id: string, templateData: Partial<Template>): Promise<Template> {
     try {
-      const response = await fetch(`${BASE_URL}/templates/${id}`, {
+      const response = await fetch(`${BASE_URL}/templates?id=${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -144,7 +145,8 @@ const templateService = {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to update template');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update template');
       }
       
       return await response.json();
@@ -156,12 +158,13 @@ const templateService = {
 
   async deleteTemplate(id: string): Promise<void> {
     try {
-      const response = await fetch(`${BASE_URL}/templates/${id}`, {
+      const response = await fetch(`${BASE_URL}/templates?id=${id}`, {
         method: 'DELETE',
       });
       
       if (!response.ok) {
-        throw new Error('Failed to delete template');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete template');
       }
     } catch (error) {
       console.error(`Error deleting template ${id}:`, error);

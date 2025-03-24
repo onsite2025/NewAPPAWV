@@ -18,11 +18,15 @@ export async function GET(request) {
     // Parse query parameters
     const { searchParams } = new URL(request.url);
     const name = searchParams.get('name');
+    const id = searchParams.get('id');
     
     // Build query
     const query: any = {};
     if (name) {
       query.name = { $regex: name, $options: 'i' };
+    }
+    if (id) {
+      query._id = id;
     }
     
     // Fetch templates from the database
@@ -33,6 +37,11 @@ export async function GET(request) {
         .populate('createdBy', 'name email')
         .lean();
       
+      // If fetching a single template by ID, return the first result
+      if (id && templates.length > 0) {
+        return NextResponse.json(templates[0], { status: 200 });
+      }
+      
       return NextResponse.json(templates, { status: 200 });
     } catch (populateError: any) {
       // If it's a missing schema error for the User model, fetch without populate
@@ -42,6 +51,11 @@ export async function GET(request) {
         const templates = await Template.find(query)
           .sort({ updatedAt: -1 })
           .lean();
+        
+        // If fetching a single template by ID, return the first result
+        if (id && templates.length > 0) {
+          return NextResponse.json(templates[0], { status: 200 });
+        }
         
         return NextResponse.json(templates, { status: 200 });
       }
@@ -118,6 +132,134 @@ export async function POST(request) {
     console.error('Error creating template:', error);
     return NextResponse.json(
       { error: 'Failed to create template' },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT: Update a template
+// @ts-ignore - Disable type checking for this function to resolve Vercel build issues
+export async function PUT(request) {
+  try {
+    // Connect to the database
+    await connectToDatabase();
+    
+    // Skip authentication in development mode
+    if (!isDevelopment) {
+      const session = await getServerSession(authOptions);
+      if (!session || !session.user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    }
+    
+    // Parse request body and URL
+    const body = await request.json();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Template ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Validate required fields
+    if (!body.name || !body.sections || !Array.isArray(body.sections)) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+    
+    // Process sections and questions
+    const processedSections = body.sections.map((section: any) => {
+      const sectionId = section.id || uuidv4();
+      
+      // Process questions
+      const questions = section.questions?.map((question: any) => {
+        return {
+          ...question,
+          id: question.id || uuidv4()
+        };
+      }) || [];
+      
+      return {
+        ...section,
+        id: sectionId,
+        questions
+      };
+    });
+    
+    // Update the template
+    const updatedTemplate = await Template.findByIdAndUpdate(
+      id,
+      {
+        ...body,
+        sections: processedSections,
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedTemplate) {
+      return NextResponse.json(
+        { error: 'Template not found' },
+        { status: 404 }
+      );
+    }
+    
+    return NextResponse.json(updatedTemplate, { status: 200 });
+  } catch (error) {
+    console.error('Error updating template:', error);
+    return NextResponse.json(
+      { error: 'Failed to update template' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE: Delete a template
+// @ts-ignore - Disable type checking for this function to resolve Vercel build issues
+export async function DELETE(request) {
+  try {
+    // Connect to the database
+    await connectToDatabase();
+    
+    // Skip authentication in development mode
+    if (!isDevelopment) {
+      const session = await getServerSession(authOptions);
+      if (!session || !session.user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    }
+    
+    // Parse URL parameters
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Template ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Delete the template
+    const deletedTemplate = await Template.findByIdAndDelete(id);
+    
+    if (!deletedTemplate) {
+      return NextResponse.json(
+        { error: 'Template not found' },
+        { status: 404 }
+      );
+    }
+    
+    return NextResponse.json({ message: 'Template deleted successfully' }, { status: 200 });
+  } catch (error) {
+    console.error('Error deleting template:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete template' },
       { status: 500 }
     );
   }

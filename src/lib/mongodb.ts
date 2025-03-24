@@ -26,7 +26,7 @@ let cached: ConnectionCache = {
  * Connect to MongoDB database
  * This function handles connection retry logic and caching
  */
-async function connectToDatabase(): Promise<Connection> {
+export async function connectToDatabase(): Promise<Connection> {
   // If we have a cached connection, return it
   if (cached.conn) {
     return cached.conn;
@@ -100,6 +100,4 @@ process.on('SIGINT', async () => {
     console.error('Error during MongoDB connection closure:', err);
     process.exit(1);
   }
-});
-
-export default connectToDatabase; 
+}); 

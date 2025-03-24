@@ -1,16 +1,15 @@
-import { Handler } from '@netlify/functions';
-import { NextApiRequest, NextApiResponse } from 'next';
+import { Handler, HandlerEvent, HandlerContext, HandlerResponse } from '@netlify/functions';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '../../src/lib/mongodb';
 
 // Import your API route handlers
-import patientsHandler from '../../src/app/api/patients/route';
-import visitsHandler from '../../src/app/api/visits/route';
-import usersHandler from '../../src/app/api/users/route';
-import practiceHandler from '../../src/app/api/practice/route';
-import templatesHandler from '../../src/app/api/templates/route';
-import authHandler from '../../src/app/api/auth/route';
+import { GET as getPatients, POST as postPatient } from '../../src/app/api/patients/route';
+import { GET as getVisits, POST as postVisit } from '../../src/app/api/visits/route';
+import { GET as getUsers, POST as postUser } from '../../src/app/api/users/route';
+import { GET as getPractice } from '../../src/app/api/practice/route';
+import { GET as getTemplates } from '../../src/app/api/templates/route';
 
-const handler: Handler = async (event, context) => {
+const handler: Handler = async (event: HandlerEvent, context: HandlerContext): Promise<HandlerResponse> => {
   // Connect to MongoDB
   try {
     await connectToDatabase();
@@ -22,29 +21,12 @@ const handler: Handler = async (event, context) => {
     };
   }
 
-  // Create Next.js request and response objects
-  const req = {
-    ...event,
-    query: event.queryStringParameters || {},
-    body: event.body ? JSON.parse(event.body) : {},
+  // Create Next.js request object
+  const request = new NextRequest(event.rawUrl, {
     method: event.httpMethod,
-    headers: event.headers,
-  } as NextApiRequest;
-
-  const res = {
-    status: (code: number) => ({
-      json: (data: any) => ({
-        statusCode: code,
-        body: JSON.stringify(data),
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        },
-      }),
-    }),
-  } as unknown as NextApiResponse;
+    headers: new Headers(event.headers as Record<string, string>),
+    body: event.body ? event.body : undefined,
+  });
 
   // Handle CORS preflight requests
   if (event.httpMethod === 'OPTIONS') {
@@ -54,7 +36,8 @@ const handler: Handler = async (event, context) => {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      },
+        'Content-Type': 'application/json'
+      }
     };
   }
 
@@ -62,29 +45,54 @@ const handler: Handler = async (event, context) => {
     // Route the request to the appropriate handler
     const path = event.path.replace('/.netlify/functions/api', '');
     
+    let response: NextResponse;
+    
     if (path.startsWith('/patients')) {
-      return await patientsHandler(req, res);
+      response = event.httpMethod === 'GET' 
+        ? await getPatients(request)
+        : await postPatient(request);
     } else if (path.startsWith('/visits')) {
-      return await visitsHandler(req, res);
+      response = event.httpMethod === 'GET'
+        ? await getVisits(request)
+        : await postVisit(request);
     } else if (path.startsWith('/users')) {
-      return await usersHandler(req, res);
+      response = event.httpMethod === 'GET'
+        ? await getUsers(request)
+        : await postUser(request);
     } else if (path.startsWith('/practice')) {
-      return await practiceHandler(req, res);
+      response = await getPractice(request);
     } else if (path.startsWith('/templates')) {
-      return await templatesHandler(req, res);
-    } else if (path.startsWith('/auth')) {
-      return await authHandler(req, res);
+      response = await getTemplates(request);
     } else {
       return {
         statusCode: 404,
-        body: JSON.stringify({ error: 'Not found' })
+        body: JSON.stringify({ error: 'Not found' }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
       };
     }
+
+    // Convert NextResponse to Netlify Function response
+    const responseData = await response.json();
+    return {
+      statusCode: response.status,
+      body: JSON.stringify(responseData),
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+      }
+    };
   } catch (error) {
     console.error('API error:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ error: 'Internal server error' }),
+      headers: {
+        'Content-Type': 'application/json'
+      }
     };
   }
 };

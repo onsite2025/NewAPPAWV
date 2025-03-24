@@ -1,5 +1,8 @@
 'use client';
 
+// Prevent static rendering of this route
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -28,41 +31,19 @@ export default function TemplatesListPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(searchQuery);
-  const [autoRefresh, setAutoRefresh] = useState(true);
   
   useEffect(() => {
-    console.log('useEffect triggered with search:', search);
     fetchTemplates(search);
   }, [search]);
-  
-  // Set up auto-refresh
-  useEffect(() => {
-    if (autoRefresh) {
-      console.log('Setting up auto-refresh timer');
-      const intervalId = setInterval(() => {
-        console.log('Auto-refresh triggered, fetching templates with search:', search);
-        fetchTemplates(search);
-      }, 10000); // Refresh every 10 seconds
-      
-      return () => {
-        console.log('Clearing auto-refresh timer');
-        clearInterval(intervalId);
-      };
-    }
-  }, [autoRefresh, search]);
   
   const fetchTemplates = async (search?: string) => {
     setIsLoading(true);
     setError(null);
-    console.log('Fetching templates with search:', search);
+    
     try {
-      console.log('Calling templateService.getTemplates...');
       const data = await templateService.getTemplates(search);
-      console.log('Templates API response:', data);
-      console.log('Templates data type:', typeof data, Array.isArray(data));
       
       if (!data || !Array.isArray(data)) {
-        console.error('Templates data is not an array:', data);
         setError('Invalid template data received');
         setTemplates([]);
         setIsLoading(false);
@@ -71,7 +52,6 @@ export default function TemplatesListPage() {
       
       // Map API data to UI template list items
       const templateItems: TemplateListItem[] = data.map((template: ITemplateResponse) => {
-        console.log('Processing template:', template);
         // Ensure sections exists and is an array
         const sections = Array.isArray(template.sections) ? template.sections : [];
         
@@ -96,7 +76,6 @@ export default function TemplatesListPage() {
         };
       });
       
-      console.log('Processed template items:', templateItems);
       setTemplates(templateItems);
     } catch (err) {
       console.error('Error fetching templates:', err);
@@ -131,13 +110,10 @@ export default function TemplatesListPage() {
   
   const handleDuplicateTemplate = async (id: string) => {
     try {
-      console.log('Duplicating template with ID:', id);
       // Fetch the template to duplicate
       const fullTemplate = await templateService.getTemplateById(id);
       
-      console.log('Template to duplicate:', fullTemplate);
       if (!fullTemplate) {
-        console.error('Template not found for duplication');
         throw new Error('Template not found');
       }
       
@@ -151,9 +127,7 @@ export default function TemplatesListPage() {
         createdBy: null
       };
       
-      console.log('Creating duplicated template:', duplicatedTemplate);
       const newTemplate = await templateService.createTemplate(duplicatedTemplate);
-      console.log('New template created:', newTemplate);
       fetchTemplates(search);
     } catch (err) {
       console.error('Error duplicating template:', err);
@@ -195,24 +169,6 @@ export default function TemplatesListPage() {
               Search
             </button>
           </form>
-          <div className="flex items-center ml-4">
-            <label htmlFor="auto-refresh" className="mr-2 text-sm text-gray-600">Auto-refresh</label>
-            <div 
-              className={`relative inline-block w-12 h-6 transition duration-200 ease-in-out rounded-full ${autoRefresh ? 'bg-green-400' : 'bg-gray-400'}`}
-              onClick={() => setAutoRefresh(!autoRefresh)}
-            >
-              <input 
-                type="checkbox" 
-                id="auto-refresh"
-                className="opacity-0 w-0 h-0" 
-                checked={autoRefresh} 
-                onChange={() => setAutoRefresh(!autoRefresh)} 
-              />
-              <span 
-                className={`absolute left-1 top-1 bg-white w-4 h-4 transition duration-200 ease-in-out rounded-full ${autoRefresh ? 'transform translate-x-6' : ''}`}
-              ></span>
-            </div>
-          </div>
         </div>
         
         {error && (

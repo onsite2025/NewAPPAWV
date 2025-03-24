@@ -45,4 +45,11 @@
 # Function configuration
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["mongoose"] 
+  external_node_modules = ["mongoose"]
+
+[functions.api]
+  timeout = 30
+  memory = 1024
+  node_bundler = "esbuild"
+  external_node_modules = ["mongoose"]
+  included_files = ["src/lib/mongodb.ts"] 

@@ -36,12 +36,14 @@ export async function connectToDatabase(): Promise<Connection> {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
-      serverSelectionTimeoutMS: 10000, // 10 seconds
-      socketTimeoutMS: 45000, // 45 seconds
-      maxPoolSize: 10,
-      minPoolSize: 5,
+      serverSelectionTimeoutMS: 5000, // 5 seconds
+      socketTimeoutMS: 10000, // 10 seconds
+      maxPoolSize: 5,
+      minPoolSize: 1,
       retryWrites: true,
       retryReads: true,
+      connectTimeoutMS: 5000, // 5 seconds
+      heartbeatFrequencyMS: 10000, // 10 seconds
     };
 
     // Gracefully handle connection

@@ -24,9 +24,17 @@ const createHeaders = (cors: boolean = true): Record<string, string> => {
 };
 
 const handler: Handler = async (event: HandlerEvent, context: HandlerContext): Promise<HandlerResponse> => {
-  // Connect to MongoDB
+  // Set function timeout
+  context.callbackWaitsForEmptyEventLoop = false;
+
+  // Connect to MongoDB with timeout
   try {
-    await connectToDatabase();
+    const connectionPromise = connectToDatabase();
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('MongoDB connection timeout')), 5000);
+    });
+
+    await Promise.race([connectionPromise, timeoutPromise]);
   } catch (error) {
     console.error('MongoDB connection error:', error);
     return {

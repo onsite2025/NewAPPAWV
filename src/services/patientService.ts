@@ -74,6 +74,8 @@ const mockPatients: Patient[] = [
   }
 ];
 
+const BASE_URL = '/.netlify/functions/api';
+
 // Patient service for client-side API calls
 const patientService = {
   // Get all patients with pagination and search
@@ -88,7 +90,7 @@ const patientService = {
       if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
       
       const queryString = queryParams.toString();
-      const url = `/api/patients${queryString ? `?${queryString}` : ''}`;
+      const url = `${BASE_URL}/patients${queryString ? `?${queryString}` : ''}`;
       
       const response = await fetch(url, {
         method: 'GET',
@@ -121,7 +123,7 @@ const patientService = {
   // Get a specific patient by ID
   async getPatientById(id: string): Promise<Patient> {
     try {
-      const response = await fetch(`/api/patients/${id}`, {
+      const response = await fetch(`${BASE_URL}/patients/${id}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -144,7 +146,7 @@ const patientService = {
   // Create a new patient
   async createPatient(patientData: Partial<Patient>): Promise<Patient> {
     try {
-      const response = await fetch('/api/patients', {
+      const response = await fetch(`${BASE_URL}/patients`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -181,7 +183,7 @@ const patientService = {
   // Update an existing patient
   async updatePatient(id: string, patientData: Partial<Patient>): Promise<Patient> {
     try {
-      const response = await fetch(`/api/patients/${id}`, {
+      const response = await fetch(`${BASE_URL}/patients/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -206,7 +208,7 @@ const patientService = {
   // Delete a patient
   async deletePatient(id: string): Promise<void> {
     try {
-      const response = await fetch(`/api/patients/${id}`, {
+      const response = await fetch(`${BASE_URL}/patients/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

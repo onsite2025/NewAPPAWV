@@ -91,7 +91,7 @@ export default function DashboardPage() {
       }));
       
       // Get templates count - using fetch directly as we haven't created a templates service yet
-      const templatesResponse = await fetch('/api/templates?limit=1', {
+      const templatesResponse = await fetch('/.netlify/functions/api/templates?limit=1', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -250,21 +250,11 @@ export default function DashboardPage() {
             ) : (
               <ul className="divide-y divide-gray-200">
                 {stats.upcomingVisits.map((visit) => (
-                  <li key={visit._id} className="py-3 flex justify-between">
-                    <div>
-                      <p className="font-medium">{visit.patientName}</p>
-                      <p className="text-sm text-gray-500">
-                        {new Date(visit.date).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div>
-                      <Link 
-                        href={`/dashboard/visits/${visit._id}`}
-                        className="text-sm bg-primary-100 text-primary-800 py-1 px-2 rounded"
-                      >
-                        View Details
-                      </Link>
-                    </div>
+                  <li key={visit._id} className="py-3">
+                    <p className="font-medium">{visit.patientName}</p>
+                    <p className="text-sm text-gray-500">
+                      {new Date(visit.date).toLocaleDateString()}
+                    </p>
                   </li>
                 ))}
               </ul>

@@ -70,6 +70,8 @@ interface IVisitSearchParams {
   sortOrder?: 'asc' | 'desc';
 }
 
+const BASE_URL = '/.netlify/functions/api';
+
 const visitService = {
   getVisits: async (params: IVisitSearchParams = {}): Promise<IVisitsResponse> => {
     try {
@@ -91,7 +93,7 @@ const visitService = {
       if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
       
       const queryString = queryParams.toString();
-      const url = `/api/visits${queryString ? `?${queryString}` : ''}`;
+      const url = `${BASE_URL}/visits${queryString ? `?${queryString}` : ''}`;
       
       console.log('Fetching visits with URL:', url);
       const response = await fetch(url);
@@ -111,7 +113,7 @@ const visitService = {
   getVisitById: async (id: string): Promise<IVisitResponse> => {
     try {
       console.log(`Fetching visit with ID: ${id}`);
-      const response = await fetch(`/api/visits/${id}`);
+      const response = await fetch(`${BASE_URL}/visits/${id}`);
       
       if (!response.ok) {
         const error = await response.json();
@@ -128,7 +130,7 @@ const visitService = {
   createVisit: async (visitData: IVisitCreateRequest): Promise<IVisitResponse> => {
     try {
       console.log('Creating visit with data:', visitData);
-      const response = await fetch('/api/visits', {
+      const response = await fetch(`${BASE_URL}/visits`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,7 +153,7 @@ const visitService = {
   updateVisit: async (id: string, visitData: IVisitUpdateRequest): Promise<IVisitResponse> => {
     try {
       console.log(`Updating visit ${id} with data:`, visitData);
-      const response = await fetch(`/api/visits/${id}`, {
+      const response = await fetch(`${BASE_URL}/visits/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -174,7 +176,7 @@ const visitService = {
   deleteVisit: async (id: string): Promise<void> => {
     try {
       console.log(`Deleting visit with ID: ${id}`);
-      const response = await fetch(`/api/visits/${id}`, {
+      const response = await fetch(`${BASE_URL}/visits/${id}`, {
         method: 'DELETE',
       });
       

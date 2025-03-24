@@ -3,7 +3,7 @@
 // Prevent static rendering of this route
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
@@ -35,7 +35,18 @@ interface VisitFilter {
   };
 }
 
-export default function VisitsPage() {
+// Loading component for Suspense fallback
+function VisitsLoading() {
+  return (
+    <div className="flex flex-col items-center justify-center my-8">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <p className="mt-4 text-gray-600">Loading visits...</p>
+    </div>
+  );
+}
+
+// Main component content extracted to be wrapped in Suspense
+function VisitsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialStatus = searchParams.get('status') || '';
@@ -471,5 +482,13 @@ export default function VisitsPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function VisitsPage() {
+  return (
+    <Suspense fallback={<VisitsLoading />}>
+      <VisitsContent />
+    </Suspense>
   );
 } 

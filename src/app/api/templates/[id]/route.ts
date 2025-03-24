@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import Template from '@/models/Template';
 import { getServerSession } from 'next-auth';
@@ -10,7 +10,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 
 // GET: Retrieve a specific template
 export async function GET(
-  req: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -68,7 +68,7 @@ export async function GET(
 
 // PUT: Update a template
 export async function PUT(
-  req: NextRequest,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -143,7 +143,7 @@ export async function PUT(
 
 // DELETE: Remove a template (mark as inactive)
 export async function DELETE(
-  req: NextRequest,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   try {

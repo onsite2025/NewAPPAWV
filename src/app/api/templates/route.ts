@@ -1,4 +1,4 @@
-import { NextResponse, NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import Template, { ITemplate } from '@/models/Template';
 import { getServerSession } from 'next-auth';
@@ -9,7 +9,7 @@ import { uuidv4 } from '@/utils/uuid';
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 // GET: Retrieve all templates
-export async function GET(request: NextRequest) {
+export async function GET(request) {
   try {
     // Connect to the database
     await connectToDatabase();
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST: Create a new template
-export async function POST(request: NextRequest) {
+export async function POST(request) {
   try {
     // Connect to the database
     await connectToDatabase();

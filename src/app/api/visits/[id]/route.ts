@@ -36,16 +36,12 @@ const VisitSchema = new mongoose.Schema({
 // Get the Visit model
 const Visit = mongoose.models.Visit || mongoose.model('Visit', VisitSchema);
 
-// GET /api/visits/[id] - Get a single visit
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+// GET: Retrieve a specific visit
+export async function GET(request, { params }) {
   try {
-    // Connect to the database
     await connectToDatabase();
     
-    const { id } = params;
+    const id = params.id;
     
     // Validate ID format
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -78,16 +74,12 @@ export async function GET(
   }
 }
 
-// PUT /api/visits/[id] - Update a visit
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+// PUT: Update a visit
+export async function PUT(request, { params }) {
   try {
-    // Connect to the database
     await connectToDatabase();
     
-    const { id } = params;
+    const id = params.id;
     const body = await request.json();
     
     // Validate ID format
@@ -124,16 +116,12 @@ export async function PUT(
   }
 }
 
-// DELETE /api/visits/[id] - Delete a visit
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+// DELETE: Delete a visit
+export async function DELETE(request, { params }) {
   try {
-    // Connect to the database
     await connectToDatabase();
     
-    const { id } = params;
+    const id = params.id;
     
     // Validate ID format
     if (!mongoose.Types.ObjectId.isValid(id)) {

@@ -1,4 +1,4 @@
-import { ITemplate, ITemplateResponse } from '@/models/Template';
+import { ITemplate, ITemplateResponse, ISection } from '@/models/Template';
 import { v4 as uuidv4 } from '@/utils/uuid';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -25,17 +25,8 @@ const saveLocalTemplates = (templates: ITemplateResponse[]): void => {
   }
 };
 
-interface Template {
-  _id: string;
-  id?: string;
-  name: string;
-  description?: string;
-  sections: any[];
-  createdAt: Date;
-  updatedAt: Date;
-  isActive: boolean;
-  createdBy: string | null;
-  version: number;
+interface Template extends Omit<ITemplateResponse, 'sections'> {
+  sections: ISection[];
 }
 
 interface TemplatesResponse {
@@ -79,16 +70,7 @@ const templateService = {
         throw new Error('Failed to fetch templates');
       }
       
-      const data = await response.json();
-      
-      // Convert date strings to Date objects
-      data.templates = data.templates.map((template: any) => ({
-        ...template,
-        createdAt: new Date(template.createdAt),
-        updatedAt: new Date(template.updatedAt)
-      }));
-      
-      return data;
+      return await response.json();
     } catch (error) {
       console.error('Error fetching templates:', error);
       throw error;
@@ -103,14 +85,7 @@ const templateService = {
         throw new Error('Failed to fetch template');
       }
       
-      const data = await response.json();
-      
-      // Convert date strings to Date objects
-      return {
-        ...data,
-        createdAt: new Date(data.createdAt),
-        updatedAt: new Date(data.updatedAt)
-      };
+      return await response.json();
     } catch (error) {
       console.error(`Error fetching template ${id}:`, error);
       throw error;

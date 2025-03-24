@@ -27,28 +27,6 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
   // Set function timeout
   context.callbackWaitsForEmptyEventLoop = false;
 
-  // Connect to MongoDB with timeout
-  try {
-    const connectionPromise = connectToDatabase();
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('MongoDB connection timeout')), 30000); // 30 seconds timeout
-    });
-
-    await Promise.race([connectionPromise, timeoutPromise]);
-    console.log('✅ MongoDB connection successful');
-  } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ 
-        error: 'Database connection failed',
-        details: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: new Date().toISOString()
-      }),
-      headers: createHeaders(false)
-    };
-  }
-
   // Create Next.js request object
   const headers = new Headers();
   Object.entries(event.headers || {}).forEach(([key, value]) => {
@@ -77,16 +55,41 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
     
     // Add a test endpoint to verify MongoDB connection
     if (path === '/test-connection') {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ 
-          status: 'success',
-          message: 'MongoDB connection is working',
-          timestamp: new Date().toISOString()
-        }),
-        headers: createHeaders()
-      };
+      try {
+        // Connect to MongoDB with timeout
+        const connectionPromise = connectToDatabase();
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('MongoDB connection timeout')), 10000); // 10 seconds timeout
+        });
+
+        await Promise.race([connectionPromise, timeoutPromise]);
+        console.log('✅ MongoDB connection successful');
+        
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ 
+            status: 'success',
+            message: 'MongoDB connection is working',
+            timestamp: new Date().toISOString()
+          }),
+          headers: createHeaders()
+        };
+      } catch (error) {
+        console.error('❌ MongoDB connection error:', error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ 
+            error: 'Database connection failed',
+            details: error instanceof Error ? error.message : 'Unknown error',
+            timestamp: new Date().toISOString()
+          }),
+          headers: createHeaders(false)
+        };
+      }
     }
+    
+    // Connect to MongoDB for other endpoints
+    await connectToDatabase();
     
     let response: NextResponse;
     

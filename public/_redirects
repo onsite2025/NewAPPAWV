@@ -1,0 +1,7 @@
+# Netlify redirects file
+
+# Handle API endpoints - Forward all API requests to the API endpoints
+/api/*  /.netlify/functions/next-api/:splat  200
+
+# Handle SPA routing - Rewrite all routes to index.html for client-side routing
+/*    /index.html   200 

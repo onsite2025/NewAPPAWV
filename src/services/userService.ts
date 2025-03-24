@@ -65,6 +65,8 @@ interface IUsersResponse {
   pagination: IPaginationResponse;
 }
 
+const BASE_URL = '/.netlify/functions/api';
+
 const userService = {
   // Get all users with optional filters and pagination
   getUsers: async (params: IUserSearchParams = {}): Promise<IUsersResponse> => {
@@ -80,7 +82,7 @@ const userService = {
       if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
       
       const queryString = queryParams.toString();
-      const url = `/api/users${queryString ? `?${queryString}` : ''}`;
+      const url = `${BASE_URL}/users${queryString ? `?${queryString}` : ''}`;
       
       console.log('Fetching users with URL:', url);
       const response = await fetch(url);
@@ -101,7 +103,7 @@ const userService = {
   getUserById: async (id: string): Promise<IUser> => {
     try {
       console.log(`Fetching user with ID: ${id}`);
-      const response = await fetch(`/api/users/${id}`);
+      const response = await fetch(`${BASE_URL}/users/${id}`);
       
       if (!response.ok) {
         const error = await response.json();
@@ -119,7 +121,7 @@ const userService = {
   getUserProfile: async (): Promise<IUserProfile> => {
     try {
       console.log('Fetching user profile');
-      const response = await fetch('/api/users/profile');
+      const response = await fetch(`${BASE_URL}/users/profile`);
       
       if (!response.ok) {
         const error = await response.json();
@@ -137,7 +139,7 @@ const userService = {
   updateUserProfile: async (profileData: Partial<IUserProfile>): Promise<IUserProfile> => {
     try {
       console.log('Updating user profile:', profileData);
-      const response = await fetch('/api/users/profile', {
+      const response = await fetch(`${BASE_URL}/users/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -161,7 +163,7 @@ const userService = {
   createUser: async (userData: Partial<IUser>): Promise<IUser> => {
     try {
       console.log('Creating user with data:', userData);
-      const response = await fetch('/api/users', {
+      const response = await fetch(`${BASE_URL}/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -185,7 +187,7 @@ const userService = {
   updateUser: async (id: string, userData: Partial<IUser>): Promise<IUser> => {
     try {
       console.log(`Updating user ${id} with data:`, userData);
-      const response = await fetch(`/api/users/${id}`, {
+      const response = await fetch(`${BASE_URL}/users/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -209,7 +211,7 @@ const userService = {
   deleteUser: async (id: string): Promise<void> => {
     try {
       console.log(`Deleting user with ID: ${id}`);
-      const response = await fetch(`/api/users/${id}`, {
+      const response = await fetch(`${BASE_URL}/users/${id}`, {
         method: 'DELETE',
       });
       
@@ -227,7 +229,7 @@ const userService = {
   sendInvitation: async (inviteData: IUserInvite): Promise<{ success: boolean; message: string }> => {
     try {
       console.log('Sending invitation to:', inviteData);
-      const response = await fetch('/api/users/invite', {
+      const response = await fetch(`${BASE_URL}/users/invite`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -251,7 +253,7 @@ const userService = {
   getUserRole: async (): Promise<{ role: string }> => {
     try {
       console.log('Fetching user role');
-      const response = await fetch('/api/users/role');
+      const response = await fetch(`${BASE_URL}/users/role`);
       
       if (!response.ok) {
         const error = await response.json();

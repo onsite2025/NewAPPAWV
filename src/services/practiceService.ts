@@ -14,12 +14,14 @@ export interface IPracticeSettings {
   updatedAt?: string;
 }
 
+const BASE_URL = '/.netlify/functions/api';
+
 const practiceService = {
   // Get practice settings
   getPracticeSettings: async (): Promise<IPracticeSettings> => {
     try {
       console.log('Fetching practice settings');
-      const response = await fetch('/api/practice');
+      const response = await fetch(`${BASE_URL}/practice`);
       
       if (!response.ok) {
         const error = await response.json();
@@ -37,7 +39,7 @@ const practiceService = {
   updatePracticeSettings: async (settingsData: Partial<IPracticeSettings>): Promise<IPracticeSettings> => {
     try {
       console.log('Updating practice settings:', settingsData);
-      const response = await fetch('/api/practice', {
+      const response = await fetch(`${BASE_URL}/practice`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -65,7 +67,7 @@ const practiceService = {
       const formData = new FormData();
       formData.append('logo', file);
       
-      const response = await fetch('/api/practice/logo', {
+      const response = await fetch(`${BASE_URL}/practice/logo`, {
         method: 'POST',
         body: formData,
       });
@@ -86,7 +88,7 @@ const practiceService = {
   deleteLogo: async (): Promise<{ success: boolean }> => {
     try {
       console.log('Deleting practice logo');
-      const response = await fetch('/api/practice/logo', {
+      const response = await fetch(`${BASE_URL}/practice/logo`, {
         method: 'DELETE',
       });
       

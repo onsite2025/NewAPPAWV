@@ -25,163 +25,135 @@ const saveLocalTemplates = (templates: ITemplateResponse[]): void => {
   }
 };
 
+interface Template {
+  _id: string;
+  name: string;
+  description?: string;
+  sections: any[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface TemplatesResponse {
+  templates: Template[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+}
+
+interface TemplateSearchParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  sortField?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+const BASE_URL = '/.netlify/functions/api';
+
 const templateService = {
-  getTemplates: async (search?: string): Promise<ITemplateResponse[]> => {
+  async getTemplates(params: TemplateSearchParams = {}): Promise<TemplatesResponse> {
     try {
-      const queryParams = search ? `?name=${encodeURIComponent(search)}` : '';
-      const response = await fetch(`/api/templates${queryParams}`);
+      // Build query string from params
+      const queryParams = new URLSearchParams();
+      if (params.page) queryParams.append('page', params.page.toString());
+      if (params.limit) queryParams.append('limit', params.limit.toString());
+      if (params.search) queryParams.append('search', params.search);
+      if (params.sortField) queryParams.append('sortField', params.sortField);
+      if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+      
+      const queryString = queryParams.toString();
+      const url = `${BASE_URL}/templates${queryString ? `?${queryString}` : ''}`;
+      
+      console.log('Fetching templates with URL:', url);
+      const response = await fetch(url);
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.error('Error response from API:', errorData);
-        throw new Error(`Failed to fetch templates: ${response.status} ${response.statusText}`);
+        throw new Error('Failed to fetch templates');
       }
       
-      const data = await response.json();
-      return data;
+      return await response.json();
     } catch (error) {
       console.error('Error fetching templates:', error);
-      if (isDevelopment) {
-        console.log('Using localStorage as fallback in development mode');
-        const templates = getLocalTemplates();
-        if (search) {
-          return templates.filter(t => 
-            t.name.toLowerCase().includes(search.toLowerCase())
-          );
-        }
-        return templates;
-      }
       throw error;
     }
   },
 
-  getTemplateById: async (id: string): Promise<ITemplateResponse | null> => {
+  async getTemplateById(id: string): Promise<Template> {
     try {
-      const response = await fetch(`/api/templates/${id}`);
+      const response = await fetch(`${BASE_URL}/templates/${id}`);
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.error(`Error response from API for template ${id}:`, errorData);
-        throw new Error(`Failed to fetch template: ${response.status} ${response.statusText}`);
+        throw new Error('Failed to fetch template');
       }
       
-      const data = await response.json();
-      return data;
+      return await response.json();
     } catch (error) {
       console.error(`Error fetching template ${id}:`, error);
-      if (isDevelopment) {
-        console.log('Using localStorage as fallback in development mode');
-        const templates = getLocalTemplates();
-        return templates.find(t => t._id === id || t.id === id) || null;
-      }
       throw error;
     }
   },
 
-  createTemplate: async (template: Omit<ITemplateResponse, '_id' | 'id' | 'createdAt' | 'updatedAt'>): Promise<ITemplateResponse> => {
+  async createTemplate(templateData: Omit<Template, '_id' | 'createdAt' | 'updatedAt'>): Promise<Template> {
     try {
-      const response = await fetch('/api/templates', {
+      const response = await fetch(`${BASE_URL}/templates`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(template),
+        body: JSON.stringify(templateData),
       });
-
+      
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.error('Error response from API when creating template:', errorData);
-        throw new Error(`Failed to create template: ${response.status} ${response.statusText}`);
+        throw new Error('Failed to create template');
       }
-
-      const data = await response.json();
-      return data;
+      
+      return await response.json();
     } catch (error) {
       console.error('Error creating template:', error);
-      if (isDevelopment) {
-        console.log('Using localStorage as fallback in development mode');
-        const newTemplate: ITemplateResponse = {
-          ...template,
-          _id: uuidv4(),
-          id: uuidv4(),
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-        const templates = getLocalTemplates();
-        templates.push(newTemplate);
-        saveLocalTemplates(templates);
-        return newTemplate;
-      }
       throw error;
     }
   },
 
-  updateTemplate: async (id: string, template: Partial<ITemplateResponse>): Promise<ITemplateResponse> => {
+  async updateTemplate(id: string, templateData: Partial<Template>): Promise<Template> {
     try {
-      const response = await fetch(`/api/templates/${id}`, {
+      const response = await fetch(`${BASE_URL}/templates/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(template),
+        body: JSON.stringify(templateData),
       });
-
+      
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.error(`Error response from API when updating template ${id}:`, errorData);
-        throw new Error(`Failed to update template: ${response.status} ${response.statusText}`);
+        throw new Error('Failed to update template');
       }
-
-      const data = await response.json();
-      return data;
+      
+      return await response.json();
     } catch (error) {
       console.error(`Error updating template ${id}:`, error);
-      if (isDevelopment) {
-        console.log('Using localStorage as fallback in development mode');
-        const templates = getLocalTemplates();
-        const index = templates.findIndex(t => t._id === id || t.id === id);
-        
-        if (index === -1) {
-          throw new Error('Template not found in localStorage');
-        }
-        
-        const updatedTemplate: ITemplateResponse = {
-          ...templates[index],
-          ...template,
-          updatedAt: new Date()
-        };
-        
-        templates[index] = updatedTemplate;
-        saveLocalTemplates(templates);
-        return updatedTemplate;
-      }
       throw error;
     }
   },
 
-  deleteTemplate: async (id: string): Promise<void> => {
+  async deleteTemplate(id: string): Promise<void> {
     try {
-      const response = await fetch(`/api/templates/${id}`, {
+      const response = await fetch(`${BASE_URL}/templates/${id}`, {
         method: 'DELETE',
       });
-
+      
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.error(`Error response from API when deleting template ${id}:`, errorData);
-        throw new Error(`Failed to delete template: ${response.status} ${response.statusText}`);
+        throw new Error('Failed to delete template');
       }
     } catch (error) {
       console.error(`Error deleting template ${id}:`, error);
-      if (isDevelopment) {
-        console.log('Using localStorage as fallback in development mode');
-        const templates = getLocalTemplates();
-        const filteredTemplates = templates.filter(t => t._id !== id && t.id !== id);
-        saveLocalTemplates(filteredTemplates);
-        return;
-      }
       throw error;
     }
   }
 };
 
+export type { Template, TemplatesResponse, TemplateSearchParams };
 export default templateService; 

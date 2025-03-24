@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import patientService from '@/services/patientService';
 import visitService from '@/services/visitService';
+import templateService from '@/services/templateService';
 
 interface DashboardStats {
   recentVisits: {
@@ -90,14 +91,9 @@ export default function DashboardPage() {
         date: visit.scheduledDate
       }));
       
-      // Get templates count - using fetch directly as we haven't created a templates service yet
-      const templatesResponse = await fetch('/.netlify/functions/api/templates?limit=1', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      const templatesData = await templatesResponse.json();
-      const templatesCount = templatesData?.pagination?.total || 0;
+      // Get templates count using the template service
+      const templatesResponse = await templateService.getTemplates({ limit: 1 });
+      const templatesCount = templatesResponse?.pagination?.total || 0;
       
       // Set the dashboard stats
       setStats({

@@ -117,11 +117,13 @@ function initializeFirebase() {
         firebaseApp = getApps()[0];
       }
       
-      // Only initialize analytics on the client side
-      try {
-        analytics = getAnalytics(firebaseApp);
-      } catch (error) {
-        console.error('Error initializing analytics:', error);
+      // Only initialize analytics on the client side if supported
+      if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+        try {
+          analytics = getAnalytics(firebaseApp);
+        } catch (error) {
+          console.warn('Analytics not supported in this environment:', error);
+        }
       }
       
       storage = getStorage(firebaseApp);

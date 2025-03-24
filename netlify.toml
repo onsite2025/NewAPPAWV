@@ -6,9 +6,6 @@
   NODE_VERSION = "18"
   NPM_VERSION = "9"
   NEXT_TELEMETRY_DISABLED = "1"
-
-# Environment variables
-[build.environment]
   MONGODB_URI = "mongodb+srv://onsitepcn:8Pkn4n0rUeT25VsQ@cluster1.cv9ak.mongodb.net/annual-wellness-visit"
   NEXT_PUBLIC_FIREBASE_API_KEY = "AIzaSyCjVKYDelG6ASUS6EfYUtOnvJBYhMCA1Lo"
   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "manusawv.firebaseapp.com"

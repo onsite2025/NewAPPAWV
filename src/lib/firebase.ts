@@ -10,6 +10,29 @@ import {
   User
 } from 'firebase/auth';
 
+// Helper function to validate Firebase config
+const validateFirebaseConfig = () => {
+  const requiredKeys = [
+    'apiKey',
+    'authDomain',
+    'projectId',
+    'storageBucket',
+    'messagingSenderId',
+    'appId'
+  ];
+  
+  const missingKeys = requiredKeys.filter(key => 
+    !process.env[`NEXT_PUBLIC_FIREBASE_${key.toUpperCase()}`]
+  );
+  
+  if (missingKeys.length > 0) {
+    console.error(`Missing required Firebase configuration: ${missingKeys.join(', ')}`);
+    return false;
+  }
+  
+  return true;
+};
+
 // Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -20,6 +43,16 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
+
+// For debugging in production environment
+if (typeof window !== 'undefined') {
+  console.log('Firebase config check:', {
+    hasApiKey: !!firebaseConfig.apiKey,
+    hasProjectId: !!firebaseConfig.projectId,
+    hasAuthDomain: !!firebaseConfig.authDomain,
+    hasAppId: !!firebaseConfig.appId
+  });
+}
 
 // Lazy initialization to avoid SSR issues
 let firebaseApp: FirebaseApp | undefined;
@@ -33,26 +66,37 @@ function initializeFirebase() {
     return null;
   }
   
-  if (!firebaseApp && typeof window !== 'undefined') {
-    // Check if any Firebase apps have been initialized
-    if (!getApps().length) {
-      firebaseApp = initializeApp(firebaseConfig);
-    } else {
-      firebaseApp = getApps()[0];
-    }
-    
-    // Only initialize analytics on the client side
-    try {
-      analytics = getAnalytics(firebaseApp);
-    } catch (error) {
-      console.error('Error initializing analytics:', error);
-    }
-    
-    storage = getStorage(firebaseApp);
-    auth = getAuth(firebaseApp);
+  // Validate config before initialization
+  if (!validateFirebaseConfig()) {
+    console.error('Firebase initialization skipped due to missing configuration');
+    return null;
   }
   
-  return firebaseApp;
+  try {
+    if (!firebaseApp && typeof window !== 'undefined') {
+      // Check if any Firebase apps have been initialized
+      if (!getApps().length) {
+        firebaseApp = initializeApp(firebaseConfig);
+      } else {
+        firebaseApp = getApps()[0];
+      }
+      
+      // Only initialize analytics on the client side
+      try {
+        analytics = getAnalytics(firebaseApp);
+      } catch (error) {
+        console.error('Error initializing analytics:', error);
+      }
+      
+      storage = getStorage(firebaseApp);
+      auth = getAuth(firebaseApp);
+    }
+    
+    return firebaseApp;
+  } catch (error) {
+    console.error('Failed to initialize Firebase:', error);
+    return null;
+  }
 }
 
 // Ensure Firebase is initialized before exporting

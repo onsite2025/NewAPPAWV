@@ -222,57 +222,16 @@ export default function ConductVisitPage() {
               // Process template sections and questions
               const processedSections = templateData.sections.map((section: any) => ({
                 ...section,
-                questions: section.questions.map((question: any) => {
-                  // Map template question types to conduct visit question types
-                  let questionType: Question['type'];
-                  switch (question.type) {
-                    case 'multipleChoice':
-                      // If it's a yes/no question, use radio
-                      if (question.options?.length === 2 && 
-                          question.options.every((opt: any) => ['yes', 'no'].includes(opt.value.toLowerCase()))) {
-                        questionType = 'radio';
-                      }
-                      // If it's a checkbox question (multiple selections allowed)
-                      else if (question.options?.some((opt: any) => opt.selected)) {
-                        questionType = 'checkbox';
-                      }
-                      // Otherwise use select
-                      else {
-                        questionType = 'select';
-                      }
-                      break;
-                    case 'numeric':
-                      questionType = 'range';
-                      break;
-                    case 'boolean':
-                      questionType = 'radio';
-                      break;
-                    case 'date':
-                      questionType = 'text';
-                      break;
-                    case 'text':
-                      // Check if it should be a textarea based on content
-                      questionType = question.text?.toLowerCase().includes('describe') || 
-                                   question.text?.toLowerCase().includes('explain') 
-                                   ? 'textarea' 
-                                   : 'text';
-                      break;
-                    default:
-                      questionType = 'text';
-                  }
-
-                  return {
-                    ...question,
-                    id: question.id || question._id || uuidv4(),
-                    type: questionType,
-                    options: question.options?.map((option: any) => ({
-                      id: option.value || option.id,
-                      text: option.label || option.text,
-                      recommendation: option.recommendation || '',
-                      selected: option.selected || false
-                    })) || []
-                  };
-                })
+                questions: section.questions.map((question: any) => ({
+                  ...question,
+                  id: question.id || question._id || uuidv4(),
+                  options: question.options?.map((option: any) => ({
+                    id: option.value || option.id,
+                    text: option.label || option.text,
+                    recommendation: option.recommendation || '',
+                    selected: option.selected || false
+                  })) || []
+                }))
               }));
               
               setQuestionnaireSections(processedSections);

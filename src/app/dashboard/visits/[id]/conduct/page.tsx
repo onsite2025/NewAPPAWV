@@ -200,7 +200,14 @@ export default function ConductVisitPage() {
           // Convert responses to the expected format
           const formattedResponses: Record<string, any> = {};
           Object.entries(visitData.responses).forEach(([key, value]) => {
-            formattedResponses[key] = value;
+            // Handle different response types
+            if (Array.isArray(value)) {
+              formattedResponses[key] = value;
+            } else if (typeof value === 'object' && value !== null) {
+              formattedResponses[key] = value;
+            } else {
+              formattedResponses[key] = value;
+            }
           });
           setResponses(formattedResponses);
         }
@@ -218,6 +225,7 @@ export default function ConductVisitPage() {
                 questions: section.questions.map((question: any) => ({
                   ...question,
                   id: question.id || question._id || uuidv4(),
+                  type: question.type || 'text', // Ensure type is set
                   options: question.options?.map((option: any) => ({
                     ...option,
                     id: option.id || option._id || uuidv4()
@@ -258,7 +266,7 @@ export default function ConductVisitPage() {
       
       if (question.type === 'select' || question.type === 'radio') {
         // For select/radio, find the matching option and use its recommendation
-        const selectedOption = question.options.find(opt => opt.id === value || opt.text === value);
+        const selectedOption = (question as SelectQuestion).options.find(opt => opt.id === value || opt.text === value);
         if (selectedOption?.recommendation) {
           recommendationText = selectedOption.recommendation;
         }
@@ -266,7 +274,7 @@ export default function ConductVisitPage() {
         // For checkboxes, combine recommendations from selected options
         if (Array.isArray(value) && value.length > 0) {
           const selectedRecommendations = value.map(v => {
-            const option = question.options.find(opt => opt.id === v || opt.text === v);
+            const option = (question as CheckboxQuestion).options.find(opt => opt.id === v || opt.text === v);
             return option?.recommendation || '';
           }).filter(r => r !== '');
           

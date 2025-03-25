@@ -23,6 +23,13 @@ interface PatientFormData {
     policyNumber: string;
     groupNumber: string;
   };
+  medicalHistory: {
+    conditions: string[];
+    medications: string[];
+    allergies: string[];
+    surgeries: string[];
+    notes: string;
+  };
 }
 
 export default function EditPatientPage() {
@@ -51,6 +58,13 @@ export default function EditPatientPage() {
       provider: '',
       policyNumber: '',
       groupNumber: '',
+    },
+    medicalHistory: {
+      conditions: [],
+      medications: [],
+      allergies: [],
+      surgeries: [],
+      notes: ''
     }
   });
   
@@ -79,6 +93,13 @@ export default function EditPatientPage() {
               provider: patient.insurance?.provider || '',
               policyNumber: patient.insurance?.policyNumber || '',
               groupNumber: patient.insurance?.groupNumber || '',
+            },
+            medicalHistory: {
+              conditions: patient.medicalHistory?.conditions || [],
+              medications: patient.medicalHistory?.medications || [],
+              allergies: patient.medicalHistory?.allergies || [],
+              surgeries: patient.medicalHistory?.surgeries || [],
+              notes: patient.medicalHistory?.notes || ''
             }
           });
         } catch (err) {
@@ -93,7 +114,7 @@ export default function EditPatientPage() {
     fetchPatient();
   }, [isEditMode, patientId]);
   
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
     // Handle nested properties with dot notation (e.g., 'address.street')
@@ -102,7 +123,7 @@ export default function EditPatientPage() {
       setFormData((prev) => ({
         ...prev,
         [parent]: {
-          ...(prev[parent as keyof PatientFormData] as Record<string, string>),
+          ...(prev[parent as keyof PatientFormData] as Record<string, any>),
           [child]: value
         }
       }));
@@ -117,6 +138,8 @@ export default function EditPatientPage() {
     setError(null);
     
     try {
+      console.log('Submitting form data:', formData);
+      
       const patientData = {
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -134,13 +157,22 @@ export default function EditPatientPage() {
           provider: formData.insurance.provider || undefined,
           policyNumber: formData.insurance.policyNumber || undefined,
           groupNumber: formData.insurance.groupNumber || undefined,
+        },
+        medicalHistory: {
+          conditions: formData.medicalHistory.conditions || [],
+          medications: formData.medicalHistory.medications || [],
+          allergies: formData.medicalHistory.allergies || [],
+          surgeries: formData.medicalHistory.surgeries || [],
+          notes: formData.medicalHistory.notes || undefined
         }
       };
       
       if (isEditMode) {
-        await patientService.updatePatient(patientId, patientData);
+        const updatedPatient = await patientService.updatePatient(patientId, patientData);
+        console.log('Patient updated successfully:', updatedPatient);
       } else {
-        await patientService.createPatient(patientData);
+        const newPatient = await patientService.createPatient(patientData);
+        console.log('Patient created successfully:', newPatient);
       }
       
       // Navigate to the patients list after successful save
@@ -386,6 +418,25 @@ export default function EditPatientPage() {
                 value={formData.insurance.groupNumber}
                 onChange={handleChange}
                 className="form-input"
+              />
+            </div>
+          </div>
+          
+          {/* Medical History Section */}
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Medical History</h2>
+            
+            <div className="mb-4">
+              <label htmlFor="medicalHistory.notes" className="block text-sm font-medium text-gray-700 mb-1">
+                Medical Notes
+              </label>
+              <textarea
+                id="medicalHistory.notes"
+                name="medicalHistory.notes"
+                value={formData.medicalHistory.notes}
+                onChange={handleChange}
+                className="form-input min-h-[150px]"
+                placeholder="Enter detailed medical notes, observations, or patient history..."
               />
             </div>
           </div>

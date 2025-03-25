@@ -30,6 +30,7 @@ interface Patient {
     medications?: string[];
     allergies?: string[];
     surgeries?: string[];
+    notes?: string;
   };
   createdAt?: string;
   updatedAt?: string;

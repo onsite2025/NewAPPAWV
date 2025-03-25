@@ -26,6 +26,7 @@ const PatientSchema = new mongoose.Schema({
     medications: [String],
     allergies: [String],
     surgeries: [String],
+    notes: String
   },
 }, { 
   timestamps: true 
@@ -93,7 +94,10 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
     
-    return NextResponse.json(updatedPatient);
+    return NextResponse.json({
+      success: true,
+      data: updatedPatient
+    });
   } catch (error) {
     console.error(`Error updating patient ${params.id}:`, error);
     return NextResponse.json(

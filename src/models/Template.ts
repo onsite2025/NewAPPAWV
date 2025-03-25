@@ -103,4 +103,13 @@ const TemplateSchema = new Schema<ITemplate>({
 });
 
 // Create and export the model only on the server side
-export default mongoose.models.Template || mongoose.model<ITemplate>('Template', TemplateSchema); 
+let TemplateModel;
+try {
+  // Try to get existing model first
+  TemplateModel = mongoose.model<ITemplate>('Template');
+} catch {
+  // If model doesn't exist, create it
+  TemplateModel = mongoose.model<ITemplate>('Template', TemplateSchema);
+}
+
+export default TemplateModel; 

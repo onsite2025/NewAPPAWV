@@ -89,9 +89,32 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
     }
     
     // Connect to MongoDB for other endpoints
-    await connectToDatabase();
+    try {
+      console.log('Attempting to connect to MongoDB...');
+      await connectToDatabase();
+      console.log('Successfully connected to MongoDB');
+    } catch (error) {
+      console.error('Failed to connect to MongoDB:', error);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ 
+          error: 'Database connection failed',
+          details: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date().toISOString()
+        }),
+        headers: createHeaders(false)
+      };
+    }
     
     let response: NextResponse;
+    
+    // Log request details
+    console.log('Processing request:', {
+      method: event.httpMethod,
+      path,
+      body: event.body ? JSON.parse(event.body) : undefined,
+      query: event.queryStringParameters
+    });
     
     if (path.startsWith('/patients')) {
       response = event.httpMethod === 'GET' 

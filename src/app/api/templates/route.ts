@@ -259,7 +259,10 @@ export async function DELETE(request) {
   } catch (error) {
     console.error('Error deleting template:', error);
     return NextResponse.json(
-      { error: 'Failed to delete template' },
+      { 
+        error: 'Failed to delete template',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

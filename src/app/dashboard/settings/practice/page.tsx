@@ -370,4 +370,100 @@ export default function PracticeSettingsPage() {
                   name="npi"
                   value={settings?.npi || ''}
                   onChange={handleChange}
-                  className={`
+                  className={`form-input ${!canEdit ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                  disabled={!canEdit || isSaving}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+          <div className="p-6 border-b border-gray-100">
+            <h2 className="text-lg font-medium text-gray-900">Practice Branding</h2>
+            <p className="text-sm text-gray-500 mt-1">Upload your practice logo and customize your branding</p>
+          </div>
+          
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Practice Logo
+                </label>
+                <div className="flex items-center">
+                  <div className="w-32 h-32 border-2 border-gray-300 border-dashed rounded-lg flex items-center justify-center mr-4 overflow-hidden relative">
+                    {logoPreview ? (
+                      <>
+                        <img 
+                          src={logoPreview} 
+                          alt="Practice Logo" 
+                          className="max-w-full max-h-full object-contain"
+                        />
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={handleDeleteLogo}
+                            className="absolute top-1 right-1 bg-red-100 text-red-600 rounded-full p-1 hover:bg-red-200 transition-colors"
+                            disabled={isUploading || isSaving}
+                            title="Remove logo"
+                          >
+                            <FiX className="h-4 w-4" />
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <FiCamera className="h-12 w-12 text-gray-400" />
+                    )}
+                  </div>
+                  <div>
+                    {canEdit ? (
+                      <>
+                        <label 
+                          htmlFor="logo-upload" 
+                          className={`btn-secondary cursor-pointer flex items-center ${isUploading ? 'opacity-75 cursor-not-allowed' : ''}`}
+                        >
+                          <FiUpload className="h-4 w-4" />
+                          <span>{isUploading ? 'Uploading...' : 'Upload Logo'}</span>
+                          <input
+                            id="logo-upload"
+                            name="logo"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleLogoChange}
+                            className="sr-only"
+                            ref={fileInputRef}
+                            disabled={isUploading || isSaving}
+                          />
+                        </label>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Recommended: PNG or JPG, at least 300x300 pixels
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        Only administrators and providers can update the practice logo
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {canEdit && (
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={isSaving || isUploading}
+            >
+              <FiSave className="h-4 w-4" />
+              <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
+            </button>
+          </div>
+        )}
+      </form>
+    </div>
+  );
+}

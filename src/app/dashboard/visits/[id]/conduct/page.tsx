@@ -227,10 +227,19 @@ export default function ConductVisitPage() {
                   let questionType: Question['type'];
                   switch (question.type) {
                     case 'multipleChoice':
-                      questionType = question.options?.length === 2 && 
-                        question.options.every((opt: any) => ['yes', 'no'].includes(opt.value.toLowerCase()))
-                        ? 'radio'
-                        : 'select';
+                      // If it's a yes/no question, use radio
+                      if (question.options?.length === 2 && 
+                          question.options.every((opt: any) => ['yes', 'no'].includes(opt.value.toLowerCase()))) {
+                        questionType = 'radio';
+                      }
+                      // If it's a checkbox question (multiple selections allowed)
+                      else if (question.options?.some((opt: any) => opt.selected)) {
+                        questionType = 'checkbox';
+                      }
+                      // Otherwise use select
+                      else {
+                        questionType = 'select';
+                      }
                       break;
                     case 'numeric':
                       questionType = 'range';
@@ -241,6 +250,13 @@ export default function ConductVisitPage() {
                     case 'date':
                       questionType = 'text';
                       break;
+                    case 'text':
+                      // Check if it should be a textarea based on content
+                      questionType = question.text?.toLowerCase().includes('describe') || 
+                                   question.text?.toLowerCase().includes('explain') 
+                                   ? 'textarea' 
+                                   : 'text';
+                      break;
                     default:
                       questionType = 'text';
                   }
@@ -250,8 +266,8 @@ export default function ConductVisitPage() {
                     id: question.id || question._id || uuidv4(),
                     type: questionType,
                     options: question.options?.map((option: any) => ({
-                      id: option.value,
-                      text: option.label,
+                      id: option.value || option.id,
+                      text: option.label || option.text,
                       recommendation: option.recommendation || '',
                       selected: option.selected || false
                     })) || []

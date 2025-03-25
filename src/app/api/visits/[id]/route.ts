@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import connectToDatabase from '@/lib/mongodb';
 import mongoose from 'mongoose';
 
 // Get the Visit model schema from the main visits route
@@ -40,7 +39,10 @@ const Visit = mongoose.models.Visit || mongoose.model('Visit', VisitSchema);
 // @ts-ignore - Disable type checking for this function to resolve Vercel build issues
 export async function GET(request, { params }) {
   try {
-    await connectToDatabase();
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error('MongoDB connection is not ready');
+    }
     
     const id = params.id;
     
@@ -79,7 +81,10 @@ export async function GET(request, { params }) {
 // @ts-ignore - Disable type checking for this function to resolve Vercel build issues
 export async function PUT(request, { params }) {
   try {
-    await connectToDatabase();
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error('MongoDB connection is not ready');
+    }
     
     const id = params.id;
     const body = await request.json();
@@ -122,7 +127,10 @@ export async function PUT(request, { params }) {
 // @ts-ignore - Disable type checking for this function to resolve Vercel build issues
 export async function DELETE(request, { params }) {
   try {
-    await connectToDatabase();
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error('MongoDB connection is not ready');
+    }
     
     const id = params.id;
     

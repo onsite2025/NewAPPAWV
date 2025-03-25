@@ -324,9 +324,24 @@ export default function ConductVisitPage() {
               const processedSections = templateData.sections.map((section: any) => ({
                 ...section,
                 questions: section.questions.map((question: any) => {
-                  // Map template question types to conduct visit question types
+                  // Preserve specialized question types and correctly map others
                   let questionType: Question['type'];
                   switch (question.type) {
+                    case 'bmi':
+                      questionType = 'bmi';
+                      break;
+                    case 'vitalSigns':
+                      questionType = 'vitalSigns';
+                      break;
+                    case 'phq2':
+                      questionType = 'phq2';
+                      break;
+                    case 'cognitiveAssessment':
+                      questionType = 'cognitiveAssessment';
+                      break;
+                    case 'cageScreening':
+                      questionType = 'cageScreening';
+                      break;
                     case 'multipleChoice':
                       // If it's a checkbox question (multiple selections allowed)
                       if (question.allowMultiple || question.options?.some((opt: any) => opt.selected)) {
@@ -369,7 +384,8 @@ export default function ConductVisitPage() {
                       text: option.label || option.text,
                       recommendation: option.recommendation || '',
                       selected: option.selected || false
-                    })) || []
+                    })) || [],
+                    config: question.config || {}  // Preserve the config
                   };
                 })
               }));

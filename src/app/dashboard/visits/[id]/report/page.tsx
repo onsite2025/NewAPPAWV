@@ -12,6 +12,17 @@ import templateService from '@/services/templateService';
 import patientService from '@/services/patientService';
 import { format } from 'date-fns';
 
+// Add type definitions for the health plan recommendations
+interface HealthPlanRecommendation {
+  domain: string;
+  text: string;
+  priority: 'high' | 'medium' | 'low';
+  source?: {
+    question: string;
+    response?: string;
+  };
+}
+
 // Remove dynamic imports that are causing linter errors
 export default function VisitReportPage() {
   const params = useParams();
@@ -264,7 +275,17 @@ export default function VisitReportPage() {
             const bmiValue = visit.responses[question.id];
             const bmiCategory = visit.responses[`${question.id}_category`];
             formattedResponse = `BMI: ${bmiValue} (${bmiCategory})`;
-            recommendation = getBMIRecommendation(bmiValue);
+            
+            // Add recommendation based on BMI value
+            if (bmiValue < 18.5) {
+              recommendation = 'BMI is below normal range. Consider nutrition counseling to achieve healthy weight.';
+            } else if (bmiValue < 25) {
+              recommendation = 'BMI is within normal range. Continue maintaining healthy diet and exercise habits.';
+            } else if (bmiValue < 30) {
+              recommendation = 'BMI indicates overweight. Recommend lifestyle modifications including increased physical activity and dietary changes.';
+            } else {
+              recommendation = 'BMI indicates obesity. Recommend comprehensive weight management program, including nutrition counseling, regular exercise, and possibly referral to weight management specialist.';
+            }
           } 
           else if (question.type === 'vitalSigns') {
             // Format vital signs
@@ -286,7 +307,28 @@ export default function VisitReportPage() {
             }
             
             formattedResponse = vitalSignsText;
-            recommendation = getVitalSignsRecommendation(systolic, diastolic, heartRate);
+            
+            // Generate recommendation based on vital signs
+            let recommendations = [];
+            if (systolic && diastolic) {
+              if (systolic >= 180 || diastolic >= 120) {
+                recommendations.push('Blood pressure indicates hypertensive crisis. Immediate medical attention recommended.');
+              } else if (systolic >= 140 || diastolic >= 90) {
+                recommendations.push('Blood pressure indicates hypertension. Follow-up with primary care provider recommended.');
+              } else if (systolic >= 130 || diastolic >= 80) {
+                recommendations.push('Blood pressure indicates elevated/stage 1 hypertension. Lifestyle modifications recommended.');
+              }
+            }
+            
+            if (heartRate) {
+              if (heartRate > 100) {
+                recommendations.push('Heart rate is elevated. Monitor for symptoms and consider evaluation if persistent.');
+              } else if (heartRate < 60) {
+                recommendations.push('Heart rate is below normal range. Consider evaluation if symptomatic.');
+              }
+            }
+            
+            recommendation = recommendations.length > 0 ? recommendations.join(' ') : 'Vital signs are within normal ranges.';
           }
           else if (question.type === 'phq2') {
             // Format PHQ-2 result
@@ -326,6 +368,7 @@ export default function VisitReportPage() {
             }
           }
           else if (question.type === 'multipleChoice' || question.type === 'boolean') {
+            // Handle different response types for multiple choice questions
             if (Array.isArray(formattedResponse)) {
               // For checkbox-type questions
               const selectedOptions = formattedResponse.map(respId => {
@@ -517,6 +560,66 @@ export default function VisitReportPage() {
             <h3 className="text-lg font-semibold mb-3 border-b pb-2 print:border-b">Visit Notes</h3>
             <div className="p-4 bg-gray-50 rounded-md border">
               <p>{visit.notes}</p>
+            </div>
+          </div>
+        )}
+        
+        {visit.healthPlan && visit.healthPlan.recommendations && visit.healthPlan.recommendations.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-3 border-b pb-2 print:border-b">Personalized Health Plan</h3>
+            
+            {visit.healthPlan.summary && (
+              <div className="p-4 bg-blue-50 rounded-md border border-blue-200 mb-4 print:bg-white">
+                <p className="text-blue-800">{visit.healthPlan.summary}</p>
+              </div>
+            )}
+            
+            <div className="space-y-4">
+              {/* Group recommendations by domain */}
+              {(() => {
+                // Group recommendations by domain
+                const grouped: Record<string, any[]> = {};
+                
+                // Ensure we're working with an array
+                const recommendations = Array.isArray(visit.healthPlan.recommendations) 
+                  ? visit.healthPlan.recommendations 
+                  : [];
+                
+                // Group by domain
+                recommendations.forEach(rec => {
+                  const domain = rec.domain || 'General';
+                  if (!grouped[domain]) grouped[domain] = [];
+                  grouped[domain].push(rec);
+                });
+                
+                // Convert to array of domain/recs pairs and render
+                return Object.entries(grouped).map(([domain, recs]) => (
+                  <div key={domain} className="border rounded-md overflow-hidden">
+                    <div className="bg-gray-100 p-3 font-medium">{domain}</div>
+                    <div className="divide-y">
+                      {recs.map((rec, i) => (
+                        <div key={i} className={`p-4 ${rec.priority === 'high' ? 'bg-red-50' : 'bg-white'}`}>
+                          <div className="flex items-start">
+                            {rec.priority === 'high' && (
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-600 mr-2 flex-shrink-0">
+                                !
+                              </span>
+                            )}
+                            <div>
+                              <p className={`${rec.priority === 'high' ? 'font-medium' : ''}`}>{rec.text}</p>
+                              {rec.source && rec.source.question && (
+                                <p className="text-sm text-gray-600 mt-1">
+                                  Based on: {rec.source.question} {rec.source.response && `(${rec.source.response})`}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
         )}

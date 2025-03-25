@@ -230,9 +230,17 @@ export default function ConductVisitPage() {
                     if (question.options && question.options.length > 0) {
                       if (question.options.some((opt: any) => opt.selected)) {
                         questionType = 'checkbox';
+                      } else if (question.options.length === 2 && 
+                               question.options.every((opt: any) => ['yes', 'no'].includes(opt.id.toLowerCase()))) {
+                        questionType = 'radio';
                       } else {
                         questionType = 'select';
                       }
+                    } else if (question.min !== undefined || question.max !== undefined) {
+                      questionType = 'range';
+                    } else if (question.text?.toLowerCase().includes('describe') || 
+                             question.text?.toLowerCase().includes('explain')) {
+                      questionType = 'textarea';
                     } else {
                       questionType = 'text';
                     }
@@ -272,7 +280,10 @@ export default function ConductVisitPage() {
     fetchVisitAndTemplate();
   }, [visitId]);
   
-  const handleInputChange = (question: Question, e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (
+    question: Question, 
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value, type } = e.target;
     const isCheckbox = type === 'checkbox';
     const input = e.target as HTMLInputElement;
@@ -437,20 +448,33 @@ export default function ConductVisitPage() {
   const renderQuestion = (question: Question) => {
     switch (question.type) {
       case 'select':
+        return (
+          <select
+            name={question.id}
+            value={responses[question.id] || ''}
+            onChange={(e) => handleInputChange(question, e)}
+            className="form-select w-full"
+          >
+            <option value="">Select an option</option>
+            {question.options.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.text}
+              </option>
+            ))}
+          </select>
+        );
       case 'radio':
         return (
           <div className="space-y-2">
             {question.options.map((option) => (
               <label key={option.id} className="flex items-center space-x-3">
                 <input
-                  type={question.type === 'radio' ? 'radio' : 'checkbox'}
+                  type="radio"
                   name={question.id}
                   value={option.id}
-                  checked={Array.isArray(responses[question.id]) 
-                    ? responses[question.id].includes(option.id)
-                    : responses[question.id] === option.id}
+                  checked={responses[question.id] === option.id}
                   onChange={(e) => handleInputChange(question, e)}
-                  className={`form-${question.type === 'radio' ? 'radio' : 'checkbox'}`}
+                  className="form-radio"
                 />
                 <span className="text-sm text-gray-700">{option.text}</span>
               </label>

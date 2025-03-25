@@ -12,7 +12,7 @@ const VisitSchema = new mongoose.Schema({
   scheduledDate: { type: Date, required: true },
   status: { 
     type: String, 
-    enum: ['scheduled', 'completed', 'cancelled', 'no-show'],
+    enum: ['scheduled', 'in-progress', 'completed', 'cancelled', 'no-show'],
     default: 'scheduled'
   },
   templateId: { type: String, required: true },

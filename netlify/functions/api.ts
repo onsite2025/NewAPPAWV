@@ -329,6 +329,250 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
       }
     }
 
+    // Handle user-related endpoints specifically
+    if (path === '/users') {
+      try {
+        // Connect to MongoDB before handling the request
+        await connectToMongoDB();
+        
+        // Import the user model dynamically
+        const UserSchema = new mongoose.Schema({
+          email: { 
+            type: String, 
+            required: true, 
+            unique: true 
+          },
+          name: { 
+            type: String, 
+            required: true 
+          },
+          role: { 
+            type: String, 
+            enum: ['admin', 'provider', 'staff'], 
+            default: 'staff' 
+          },
+          status: { 
+            type: String, 
+            enum: ['active', 'inactive', 'pending'], 
+            default: 'pending' 
+          },
+          phone: { 
+            type: String 
+          },
+          title: { 
+            type: String 
+          },
+          specialty: { 
+            type: String 
+          },
+          npi: { 
+            type: String 
+          },
+          lastLogin: { 
+            type: Date 
+          },
+          notificationPreferences: {
+            email: { 
+              type: Boolean, 
+              default: true 
+            },
+            inApp: { 
+              type: Boolean, 
+              default: true 
+            }
+          },
+          twoFactorEnabled: { 
+            type: Boolean, 
+            default: false 
+          },
+          invitedBy: { 
+            type: mongoose.Schema.Types.ObjectId, 
+            ref: 'User' 
+          },
+          invitationSentAt: { 
+            type: Date 
+          },
+          firebaseUid: { 
+            type: String, 
+            unique: true, 
+            sparse: true 
+          }
+        }, { 
+          timestamps: true 
+        });
+        
+        const User = mongoose.models.User || mongoose.model('User', UserSchema);
+        
+        // Handle the GET request for users list (the most common request)
+        if (event.httpMethod === 'GET') {
+          try {
+            // Parse query parameters
+            const query = event.queryStringParameters || {};
+            const page = parseInt(query.page || '1');
+            const limit = parseInt(query.limit || '10');
+            const search = query.search || '';
+            const role = query.role || '';
+            const status = query.status || '';
+            const sortField = query.sortField || 'createdAt';
+            const sortOrder = query.sortOrder || 'desc';
+            
+            // Calculate skip value for pagination
+            const skip = (page - 1) * limit;
+            
+            // Build query filter
+            const filter: any = {};
+            
+            if (search) {
+              filter.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } }
+              ];
+            }
+            
+            if (role) {
+              filter.role = role;
+            }
+            
+            if (status) {
+              filter.status = status;
+            }
+            
+            // Build sort object
+            const sort: any = {};
+            sort[sortField] = sortOrder === 'asc' ? 1 : -1;
+            
+            // For demo purposes, create dummy users if none exist
+            const count = await User.countDocuments();
+            if (count === 0) {
+              // Create some sample users
+              const demoUsers = [
+                {
+                  email: 'admin@example.com',
+                  name: 'Admin User',
+                  role: 'admin',
+                  status: 'active',
+                  firebaseUid: '6wsWnc7HllSNFvnHORIgc8iDc9U2'
+                },
+                {
+                  email: 'provider@example.com',
+                  name: 'Doctor Smith',
+                  role: 'provider',
+                  status: 'active',
+                  specialty: 'Primary Care'
+                },
+                {
+                  email: 'staff@example.com',
+                  name: 'Staff Member',
+                  role: 'staff',
+                  status: 'active'
+                }
+              ];
+              
+              await User.insertMany(demoUsers);
+            }
+            
+            // Query users with filters, sort, and pagination
+            const users = await User.find(filter)
+              .sort(sort)
+              .skip(skip)
+              .limit(limit)
+              .lean();
+            
+            // Get total count for pagination
+            const total = await User.countDocuments(filter);
+            
+            // Calculate total pages
+            const pages = Math.ceil(total / limit);
+            
+            return {
+              statusCode: 200,
+              body: JSON.stringify({
+                users,
+                pagination: {
+                  total,
+                  page,
+                  limit,
+                  pages
+                }
+              }),
+              headers: createHeaders()
+            };
+          } catch (error) {
+            console.error('Error fetching users:', error);
+            return {
+              statusCode: 500,
+              body: JSON.stringify({ error: 'Failed to fetch users' }),
+              headers: createHeaders()
+            };
+          }
+        } else if (event.httpMethod === 'POST') {
+          // Handle user creation
+          try {
+            // Parse request body
+            const body = JSON.parse(event.body || '{}');
+            
+            // Validate request body
+            if (!body.email || !body.name) {
+              return {
+                statusCode: 400,
+                body: JSON.stringify({ error: 'Email and name are required' }),
+                headers: createHeaders()
+              };
+            }
+            
+            // Check if user already exists
+            const existingUser = await User.findOne({ email: body.email });
+            if (existingUser) {
+              return {
+                statusCode: 409,
+                body: JSON.stringify({ error: 'User with this email already exists' }),
+                headers: createHeaders()
+              };
+            }
+            
+            // Create new user
+            const newUser = new User({
+              ...body,
+              status: 'pending', // New users are pending until they accept invitation
+              invitationSentAt: new Date()
+            });
+            
+            // Save new user
+            await newUser.save();
+            
+            return {
+              statusCode: 201,
+              body: JSON.stringify(newUser),
+              headers: createHeaders()
+            };
+          } catch (error) {
+            console.error('Error creating user:', error);
+            return {
+              statusCode: 500,
+              body: JSON.stringify({ error: 'Failed to create user' }),
+              headers: createHeaders()
+            };
+          }
+        } else {
+          return {
+            statusCode: 405,
+            body: JSON.stringify({ error: 'Method not allowed' }),
+            headers: createHeaders()
+          };
+        }
+      } catch (error) {
+        console.error('Error handling users endpoint:', error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ 
+            error: 'Internal server error', 
+            details: error instanceof Error ? error.message : 'Unknown error'
+          }),
+          headers: createHeaders()
+        };
+      }
+    }
+
     // Handle practice settings requests
     if (path === '/practice') {
       try {
@@ -455,6 +699,48 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
           statusCode: 500,
           body: JSON.stringify({ 
             error: 'Internal server error', 
+            details: error instanceof Error ? error.message : 'Unknown error'
+          }),
+          headers: createHeaders()
+        };
+      }
+    }
+
+    // Handle practice logo upload
+    if (path === '/practice/logo') {
+      try {
+        if (event.httpMethod === 'POST') {
+          // Mock successful logo upload
+          // In a real app, you would use a service like Cloudinary or S3
+          // to store the image and return the URL
+          
+          console.log('Practice logo upload requested');
+          
+          // Return a mock successful response
+          return {
+            statusCode: 200,
+            body: JSON.stringify({ 
+              success: true,
+              data: {
+                logoUrl: 'https://placehold.co/400x200?text=Logo+Uploaded',
+                message: 'Logo uploaded successfully'
+              }
+            }),
+            headers: createHeaders()
+          };
+        } else {
+          return {
+            statusCode: 405,
+            body: JSON.stringify({ error: 'Method not allowed' }),
+            headers: createHeaders()
+          };
+        }
+      } catch (error) {
+        console.error('Error handling practice logo upload:', error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ 
+            error: 'Failed to upload logo', 
             details: error instanceof Error ? error.message : 'Unknown error'
           }),
           headers: createHeaders()

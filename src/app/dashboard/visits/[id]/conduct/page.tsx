@@ -227,7 +227,18 @@ export default function ConductVisitPage() {
                   let questionType: Question['type'];
                   switch (question.type) {
                     case 'multipleChoice':
-                      questionType = 'radio';
+                      // If it's a checkbox question (multiple selections allowed)
+                      if (question.options?.some((opt: any) => opt.selected)) {
+                        questionType = 'checkbox';
+                      }
+                      // If it's a select question (dropdown)
+                      else if (question.options?.length > 5) {
+                        questionType = 'select';
+                      }
+                      // Otherwise use radio
+                      else {
+                        questionType = 'radio';
+                      }
                       break;
                     case 'numeric':
                       questionType = 'range';
@@ -239,7 +250,10 @@ export default function ConductVisitPage() {
                       questionType = 'text';
                       break;
                     case 'text':
-                      questionType = 'text';
+                      questionType = question.text?.toLowerCase().includes('describe') || 
+                                   question.text?.toLowerCase().includes('explain') 
+                                   ? 'textarea' 
+                                   : 'text';
                       break;
                     default:
                       questionType = 'text';

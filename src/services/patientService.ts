@@ -139,63 +139,53 @@ const patientService = {
     try {
       console.log(`Fetching patient with ID: ${id}`);
       
-      // Add timeout to fetch to prevent hanging requests
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-      
+      // First attempt: Try to fetch directly by ID
       try {
         const response = await fetch(`${BASE_URL}/patients/${id}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
             'Cache-Control': 'no-store'
-          },
-          signal: controller.signal
+          }
         });
         
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: 'Unknown server error' }));
+        if (response.ok) {
+          let data = await response.json();
           
-          if (response.status === 404) {
-            throw new Error('Not found');
+          // Handle potential nested structure
+          if (data && typeof data === 'object' && data.success === true && data.data) {
+            data = data.data;
           }
           
-          throw new Error(
-            errorData.error || `Failed to fetch patient (HTTP ${response.status})`
-          );
+          if (data && data._id) {
+            return data;
+          }
         }
         
-        let data;
-        try {
-          data = await response.json();
-          // Log the complete data structure to help debug
-          console.log('Raw patient data from API:', JSON.stringify(data));
-        } catch (parseError) {
-          console.error('Error parsing JSON response:', parseError);
-          throw new Error('Invalid response format from server');
+        // If we reach here, the direct fetch failed
+        throw new Error("Direct fetch failed, will try fallback");
+      } catch (directFetchError) {
+        console.log("Direct patient fetch failed, trying fallback method");
+        
+        // Fallback approach: Get from the patients list
+        const allPatientsResponse = await this.getPatients({ limit: 100 });
+        
+        // Check if the patients array exists and has items
+        if (allPatientsResponse && 
+            allPatientsResponse.patients && 
+            Array.isArray(allPatientsResponse.patients)) {
+          
+          // Find the patient by ID in the array
+          const patient = allPatientsResponse.patients.find(p => p._id === id);
+          
+          if (patient) {
+            console.log("Found patient in list results");
+            return patient;
+          }
         }
         
-        // Handle potential nested response structure (common in Netlify Functions)
-        if (data && typeof data === 'object' && data.success === true && data.data) {
-          console.log('Found patient data in nested structure');
-          data = data.data;
-        }
-        
-        // Ensure the patient data has an ID
-        if (!data || !data._id) {
-          console.error('Invalid patient data - missing ID:', data);
-          throw new Error('Patient data is incomplete or invalid');
-        }
-        
-        return data;
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
-          throw new Error('Request timed out. Please try again.');
-        }
-        
-        throw error;
+        // If we still couldn't find the patient, throw the error
+        throw new Error("Not found");
       }
     } catch (error) {
       console.error(`Error fetching patient with id ${id}:`, error);

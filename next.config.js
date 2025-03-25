@@ -17,7 +17,6 @@ const nextConfig = {
   // Enable environment variable loading in server components
   env: {
     MONGODB_URI: process.env.MONGODB_URI,
-    NODE_ENV: process.env.NODE_ENV,
   },
 
   // Configure rewrites to handle API routes
@@ -28,6 +27,19 @@ const nextConfig = {
         destination: '/.netlify/functions/api/:path*'
       }
     ];
+  },
+
+  // Add webpack configuration for better module support
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      };
+    }
+    return config;
   }
 };
 

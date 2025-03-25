@@ -283,6 +283,7 @@ interface TemplateQuestion extends BaseQuestion {
 
 interface ProcessedQuestion extends BaseQuestion {
   type: AppQuestionType;
+  originalType?: TemplateQuestionType; // Add original template type
   conditional?: {
     questionId: string;
     value?: string | number | boolean;
@@ -598,6 +599,7 @@ export default function ConductVisitPage() {
                     text: question.text,
                     required: question.required || false,
                     type: processedType,
+                    originalType: question.type, // Store the original template type
                     includeRecommendation: question.includeRecommendation || false,
                     defaultRecommendation: question.defaultRecommendation || '',
                     
@@ -1040,6 +1042,8 @@ export default function ConductVisitPage() {
           setCompletedSections(updatedCompletedSections);
         }
         
+        console.log('Saving progress with sections:', updatedCompletedSections);
+        
         // Save progress to the backend
         await visitService.updateVisit(visitId, {
           status: 'in-progress',
@@ -1399,11 +1403,15 @@ export default function ConductVisitPage() {
   
   // Render form inputs based on question type
   const renderQuestion = (question: ProcessedQuestion | any) => {
-    // Determine the actual input type to render based on question type and config
-    let inputType = question.type;
+    // Determine the actual input type to render based on question type, original type, and config
+    let inputType: string;
     
-    // Handle multipleChoice questions by looking at config
-    if (inputType === 'multipleChoice') {
+    // First try to use the original type if available
+    if (question.originalType) {
+      inputType = question.originalType;
+    }
+    // Otherwise fall back to the config-based detection
+    else if (question.type === 'multipleChoice') {
       if (question.config?.multiple === true) {
         inputType = 'checkbox';
       } else {
@@ -1411,10 +1419,13 @@ export default function ConductVisitPage() {
         inputType = question.options && question.options.length > 0 ? 'radio' : 'select';
       }
     }
-    
     // Handle text questions by looking at config
-    if (inputType === 'text' && question.config?.multiline === true) {
+    else if (question.type === 'text' && question.config?.multiline === true) {
       inputType = 'textarea';
+    }
+    // Otherwise use the current type
+    else {
+      inputType = question.type;
     }
     
     // Map template types to appropriate input types

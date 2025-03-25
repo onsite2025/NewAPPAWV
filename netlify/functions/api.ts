@@ -1,6 +1,6 @@
 import { Handler, HandlerEvent, HandlerContext, HandlerResponse } from '@netlify/functions';
 import { NextRequest, NextResponse } from 'next/server';
-import connectToDatabase from '../../src/lib/mongodb';
+import mongoose from 'mongoose';
 
 // Import your API route handlers
 import { GET as getPatients, POST as postPatient } from '../../src/app/api/patients/route';
@@ -8,6 +8,40 @@ import { GET as getVisits, POST as postVisit } from '../../src/app/api/visits/ro
 import { GET as getUsers, POST as postUser } from '../../src/app/api/users/route';
 import { GET as getPractice } from '../../src/app/api/practice/route';
 import { GET as getTemplates, POST as postTemplate, PUT as putTemplate, DELETE as deleteTemplate } from '../../src/app/api/templates/route';
+
+// MongoDB Connection
+const MONGODB_URI = process.env.MONGODB_URI;
+let cachedConnection: mongoose.Connection | null = null;
+
+async function connectToDatabase(): Promise<mongoose.Connection> {
+  if (cachedConnection) {
+    return cachedConnection;
+  }
+
+  if (!MONGODB_URI) {
+    throw new Error('MONGODB_URI is not defined');
+  }
+
+  try {
+    const connection = await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 10000,
+      maxPoolSize: 10,
+      minPoolSize: 1,
+      retryWrites: true,
+      retryReads: true,
+      ssl: true,
+    });
+
+    console.log('✅ Connected to MongoDB');
+    cachedConnection = connection.connection;
+    return cachedConnection;
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error);
+    throw error;
+  }
+}
 
 const createHeaders = (cors: boolean = true): Record<string, string> => {
   const headers: Record<string, string> = {
@@ -56,15 +90,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
     // Add a test endpoint to verify MongoDB connection
     if (path === '/test-connection') {
       try {
-        // Connect to MongoDB with timeout
-        const connectionPromise = connectToDatabase();
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('MongoDB connection timeout')), 10000); // 10 seconds timeout
-        });
-
-        await Promise.race([connectionPromise, timeoutPromise]);
-        console.log('✅ MongoDB connection successful');
-        
+        await connectToDatabase();
         return {
           statusCode: 200,
           body: JSON.stringify({ 
@@ -83,16 +109,14 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
             details: error instanceof Error ? error.message : 'Unknown error',
             timestamp: new Date().toISOString()
           }),
-          headers: createHeaders(false)
+          headers: createHeaders()
         };
       }
     }
     
     // Connect to MongoDB for other endpoints
     try {
-      console.log('Attempting to connect to MongoDB...');
       await connectToDatabase();
-      console.log('Successfully connected to MongoDB');
     } catch (error) {
       console.error('Failed to connect to MongoDB:', error);
       return {
@@ -102,72 +126,54 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
           details: error instanceof Error ? error.message : 'Unknown error',
           timestamp: new Date().toISOString()
         }),
-        headers: createHeaders(false)
+        headers: createHeaders()
       };
     }
-    
-    let response: NextResponse;
     
     // Log request details
     console.log('Processing request:', {
       method: event.httpMethod,
       path,
-      body: event.body ? JSON.parse(event.body) : undefined,
       query: event.queryStringParameters
     });
+
+    // Handle the request based on the path
+    let response: any;
     
-    if (path.startsWith('/patients')) {
-      response = event.httpMethod === 'GET' 
-        ? await getPatients(request)
-        : await postPatient(request);
-    } else if (path.startsWith('/visits')) {
-      response = event.httpMethod === 'GET'
-        ? await getVisits(request)
-        : await postVisit(request);
-    } else if (path.startsWith('/users')) {
-      response = event.httpMethod === 'GET'
-        ? await getUsers(request)
-        : await postUser(request);
-    } else if (path.startsWith('/practice')) {
-      response = await getPractice(request);
-    } else if (path.startsWith('/templates')) {
-      switch (event.httpMethod) {
-        case 'GET':
-          response = await getTemplates(request);
-          break;
-        case 'POST':
-          response = await postTemplate(request);
-          break;
-        case 'PUT':
-          response = await putTemplate(request);
-          break;
-        case 'DELETE':
-          response = await deleteTemplate(request);
-          break;
-        default:
-          return {
-            statusCode: 405,
-            body: JSON.stringify({ error: 'Method not allowed' }),
-            headers: createHeaders(false)
-          };
+    try {
+      // Import and use the appropriate route handler
+      const routeModule = await import(`../../src/app/api${path}/route`);
+      const handler = routeModule[event.httpMethod];
+      
+      if (!handler) {
+        throw new Error(`No handler for ${event.httpMethod} ${path}`);
       }
-    } else {
+      
+      response = await handler(request);
+    } catch (error) {
+      console.error(`Error handling ${path}:`, error);
       return {
-        statusCode: 404,
-        body: JSON.stringify({ error: 'Not found' }),
-        headers: createHeaders(false)
+        statusCode: 500,
+        body: JSON.stringify({ 
+          error: 'Internal server error',
+          details: error instanceof Error ? error.message : 'Unknown error',
+          path,
+          timestamp: new Date().toISOString()
+        }),
+        headers: createHeaders()
       };
     }
 
-    // Convert NextResponse to Netlify Function response
+    // Convert NextResponse to Netlify function response
     const responseData = await response.json();
+    
     return {
-      statusCode: response.status,
+      statusCode: response.status || 200,
       body: JSON.stringify(responseData),
       headers: createHeaders()
     };
   } catch (error) {
-    console.error('API error:', error);
+    console.error('Unhandled error:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({ 
@@ -175,7 +181,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
         details: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString()
       }),
-      headers: createHeaders(false)
+      headers: createHeaders()
     };
   }
 };

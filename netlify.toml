@@ -21,19 +21,20 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+# Handle API routes
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
 # Handle SPA routing
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
-# Add API redirects to avoid CORS issues
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
-  status = 200
-
-# Add headers for security
+# Add headers for security and CORS
 [[headers]]
   for = "/*"
   [headers.values]
@@ -41,6 +42,9 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
 
 # Function configuration
 [functions]

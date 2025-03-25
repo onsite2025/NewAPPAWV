@@ -74,7 +74,16 @@ const mockPatients: Patient[] = [
   }
 ];
 
-const BASE_URL = '/.netlify/functions/api';
+const BASE_URL = process.env.NODE_ENV === 'development' ? '/api' : '/.netlify/functions/api';
+
+// Helper function to handle API responses
+async function handleResponse(response: Response) {
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
+  }
+  return response.json();
+}
 
 // Patient service for client-side API calls
 const patientService = {
@@ -92,50 +101,34 @@ const patientService = {
       const queryString = queryParams.toString();
       const url = `${BASE_URL}/patients${queryString ? `?${queryString}` : ''}`;
       
+      console.log('Fetching patients with URL:', url);
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
+        cache: 'no-store'
       });
       
-      if (!response.ok) {
-        throw new Error('Server responded with an error');
-      }
-      
-      return await response.json();
+      return await handleResponse(response);
     } catch (error) {
       console.error('Error fetching patients:', error);
-      
-      // Return mock data as fallback
-      return {
-        patients: mockPatients,
-        pagination: {
-          total: mockPatients.length,
-          page: params.page || 1,
-          limit: params.limit || 10,
-          pages: 1
-        }
-      };
+      throw error;
     }
   },
   
   // Get a specific patient by ID
   async getPatientById(id: string): Promise<Patient> {
     try {
-      const response = await fetch(`${BASE_URL}/patients?id=${id}`, {
+      const response = await fetch(`${BASE_URL}/patients/${id}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
+        cache: 'no-store'
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch patient');
-      }
-      
-      return await response.json();
+      return await handleResponse(response);
     } catch (error) {
       console.error(`Error fetching patient with id ${id}:`, error);
       throw error;
@@ -153,12 +146,7 @@ const patientService = {
         body: JSON.stringify(patientData),
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create patient');
-      }
-      
-      return await response.json();
+      return await handleResponse(response);
     } catch (error) {
       console.error('Error creating patient:', error);
       throw error;
@@ -168,7 +156,7 @@ const patientService = {
   // Update an existing patient
   async updatePatient(id: string, patientData: Partial<Patient>): Promise<Patient> {
     try {
-      const response = await fetch(`${BASE_URL}/patients?id=${id}`, {
+      const response = await fetch(`${BASE_URL}/patients/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -176,12 +164,7 @@ const patientService = {
         body: JSON.stringify(patientData),
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update patient');
-      }
-      
-      return await response.json();
+      return await handleResponse(response);
     } catch (error) {
       console.error(`Error updating patient with id ${id}:`, error);
       throw error;
@@ -191,17 +174,14 @@ const patientService = {
   // Delete a patient
   async deletePatient(id: string): Promise<void> {
     try {
-      const response = await fetch(`${BASE_URL}/patients?id=${id}`, {
+      const response = await fetch(`${BASE_URL}/patients/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete patient');
-      }
+      await handleResponse(response);
     } catch (error) {
       console.error(`Error deleting patient with id ${id}:`, error);
       throw error;

@@ -23,10 +23,9 @@ let cached: ConnectionCache = {
 };
 
 /**
- * Connect to MongoDB database
- * This function handles connection retry logic and caching
+ * Connect to MongoDB database with retry logic
  */
-export async function connectToDatabase(): Promise<Connection> {
+export async function connectToDatabase(retries = 3): Promise<Connection> {
   // If we have a cached connection, return it
   if (cached.conn) {
     return cached.conn;
@@ -36,45 +35,47 @@ export async function connectToDatabase(): Promise<Connection> {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
-      serverSelectionTimeoutMS: 10000, // 10 seconds
-      socketTimeoutMS: 15000, // 15 seconds
-      maxPoolSize: 5,
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 10000,
+      maxPoolSize: 10,
       minPoolSize: 1,
       retryWrites: true,
       retryReads: true,
-      connectTimeoutMS: 10000, // 10 seconds
-      heartbeatFrequencyMS: 5000, // 5 seconds
-      family: 4, // Force IPv4
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      compressors: 'zlib', // Enable compression
-      maxIdleTimeMS: 30000, // Close idle connections after 30 seconds
-      ssl: true, // Enable SSL
-      tlsAllowInvalidCertificates: false, // Validate SSL certificates
-      tlsAllowInvalidHostnames: false, // Validate hostnames
+      family: 4,
+      ssl: true,
+      compressors: 'zlib',
+      maxIdleTimeMS: 30000,
+      tlsAllowInvalidCertificates: process.env.NODE_ENV === 'development',
+      tlsAllowInvalidHostnames: process.env.NODE_ENV === 'development',
     };
 
-    // Gracefully handle connection
-    cached.promise = mongoose.connect(MONGODB_URI, opts)
-      .then((mongoose): Connection => {
+    const tryConnect = async (attempt: number): Promise<Connection> => {
+      try {
+        const mongoose = await import('mongoose');
+        const connection = await mongoose.connect(MONGODB_URI, opts);
         console.log('✅ Connected to MongoDB');
-        return mongoose.connection;
-      })
-      .catch((err: Error) => {
-        console.error('❌ MongoDB connection error:', err.message);
+        return connection.connection;
+      } catch (err: any) {
+        console.error(`❌ MongoDB connection error (attempt ${attempt}):`, err.message);
         
-        // Provide specific error messages based on error code
-        if ((err as any).code === 8000) {
-          console.error('Authentication failed. Please check your MongoDB username and password.');
-        } else if ((err as any).code === 'ENOTFOUND') {
-          console.error('Server not found. Please check your MongoDB connection string.');
-        } else if ((err as any).code === 'ETIMEDOUT') {
-          console.error('Connection timed out. Please check your network and MongoDB server status.');
-        } else if ((err as any).code === 'ECONNREFUSED') {
-          console.error('Connection refused. Please check if MongoDB server is running.');
+        if (attempt < retries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return tryConnect(attempt + 1);
         }
         
-        // Reset promise so next call will try again
+        throw err;
+      }
+    };
+
+    cached.promise = tryConnect(1)
+      .then((connection) => {
+        cached.conn = connection;
+        return connection;
+      })
+      .catch((err) => {
         cached.promise = null;
         throw err;
       });
@@ -84,18 +85,7 @@ export async function connectToDatabase(): Promise<Connection> {
     cached.conn = await cached.promise;
     return cached.conn;
   } catch (err) {
-    // Reset promise for next attempt
     cached.promise = null;
-    
-    // Log detailed error information
-    const error = err as Error;
-    console.error('Failed to connect to MongoDB:', {
-      error: error.message,
-      code: (err as any).code,
-      stack: error.stack,
-      uri: MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//****:****@') // Hide credentials
-    });
-    
     throw err;
   }
 }
@@ -112,5 +102,4 @@ process.on('SIGINT', async () => {
   }
 });
 
-// Export both named and default exports
 export default connectToDatabase; 

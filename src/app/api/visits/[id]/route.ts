@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { type NextApiRequest } from 'next';
 import connectToDatabase from '@/lib/mongodb';
 import mongoose from 'mongoose';
 import { z } from 'zod';
@@ -80,13 +81,19 @@ const VisitUpdateSchema = z.object({
   completedSections: z.array(z.number()).optional()
 });
 
+// Define the correct interface for route params
+interface RouteParams {
+  params: {
+    id: string;
+  };
+}
+
 // GET /api/visits/[id] - Fetch a specific visit
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, context: RouteParams): Promise<NextResponse> {
+  const id = context.params.id;
+  
   // Validate ID format
-  if (!params.id || !mongoose.Types.ObjectId.isValid(params.id)) {
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
     return apiResponse(null, 400, 'Invalid visit ID format');
   }
   
@@ -95,7 +102,7 @@ export async function GET(
     await connectToDatabase();
     
     // Fetch the visit from the database
-    const visit = await Visit.findById(params.id)
+    const visit = await Visit.findById(id)
       .populate('patient', 'firstName lastName dateOfBirth')
       .populate('provider', 'firstName lastName')
       .lean();
@@ -106,7 +113,7 @@ export async function GET(
     
     return apiResponse(visit);
   } catch (error: any) {
-    console.error(`Error fetching visit ${params.id}:`, error);
+    console.error(`Error fetching visit ${id}:`, error);
     
     // Handle specific MongoDB errors
     if (error.name === 'CastError') {
@@ -118,12 +125,11 @@ export async function GET(
 }
 
 // PUT /api/visits/[id] - Update a visit
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, context: RouteParams): Promise<NextResponse> {
+  const id = context.params.id;
+  
   // Validate ID format
-  if (!params.id || !mongoose.Types.ObjectId.isValid(params.id)) {
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
     return apiResponse(null, 400, 'Invalid visit ID format');
   }
   
@@ -140,7 +146,7 @@ export async function PUT(
       
       // Update the visit with validated data
       const visit = await Visit.findByIdAndUpdate(
-        params.id,
+        id,
         { ...validatedData, updatedAt: new Date() },
         { new: true, runValidators: true }
       );
@@ -155,7 +161,7 @@ export async function PUT(
       return apiResponse(null, 400, `Validation error: ${validationError.message || 'Invalid data'}`);
     }
   } catch (error: any) {
-    console.error(`Error updating visit ${params.id}:`, error);
+    console.error(`Error updating visit ${id}:`, error);
     
     // Handle specific MongoDB errors
     if (error.name === 'CastError') {
@@ -171,12 +177,11 @@ export async function PUT(
 }
 
 // DELETE /api/visits/[id] - Delete a visit
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, context: RouteParams): Promise<NextResponse> {
+  const id = context.params.id;
+  
   // Validate ID format
-  if (!params.id || !mongoose.Types.ObjectId.isValid(params.id)) {
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
     return apiResponse(null, 400, 'Invalid visit ID format');
   }
   
@@ -185,7 +190,7 @@ export async function DELETE(
     await connectToDatabase();
     
     // Delete the visit
-    const result = await Visit.findByIdAndDelete(params.id);
+    const result = await Visit.findByIdAndDelete(id);
     
     if (!result) {
       return apiResponse(null, 404, 'Visit not found');
@@ -193,7 +198,7 @@ export async function DELETE(
     
     return apiResponse({ message: 'Visit deleted successfully' });
   } catch (error: any) {
-    console.error(`Error deleting visit ${params.id}:`, error);
+    console.error(`Error deleting visit ${id}:`, error);
     
     // Handle specific MongoDB errors
     if (error.name === 'CastError') {

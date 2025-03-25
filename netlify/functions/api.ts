@@ -1,7 +1,6 @@
 import { Handler, HandlerEvent, HandlerContext, HandlerResponse } from '@netlify/functions';
 import { NextRequest } from 'next/server';
 import mongoose from 'mongoose';
-import { connectToDatabase } from '../../src/lib/mongodb';
 
 // Import your API route handlers
 import { GET as getPatients, POST as postPatient, PUT as putPatient, DELETE as deletePatient } from '../../src/app/api/patients/route';
@@ -9,6 +8,37 @@ import { GET as getVisits, POST as postVisit } from '../../src/app/api/visits/ro
 import { GET as getUsers, POST as postUser } from '../../src/app/api/users/route';
 import { GET as getPractice } from '../../src/app/api/practice/route';
 import { GET as getTemplates, POST as postTemplate, PUT as putTemplate, DELETE as deleteTemplate } from '../../src/app/api/templates/route';
+
+// MongoDB Connection
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+  throw new Error('MONGODB_URI environment variable is not defined');
+}
+
+const connectToMongoDB = async () => {
+  if (mongoose.connection.readyState === 1) {
+    return mongoose;
+  }
+
+  try {
+    await mongoose.connect(MONGODB_URI, {
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 10000,
+      maxPoolSize: 10,
+      minPoolSize: 1,
+      retryWrites: true,
+      retryReads: true,
+      ssl: true,
+    });
+    console.log('✅ Connected to MongoDB');
+    return mongoose;
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error);
+    throw error;
+  }
+};
 
 const createHeaders = (cors: boolean = true): Record<string, string> => {
   const headers: Record<string, string> = {
@@ -57,7 +87,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
     // Add a test endpoint to verify MongoDB connection
     if (path === '/test-connection') {
       try {
-        await connectToDatabase();
+        await connectToMongoDB();
         return {
           statusCode: 200,
           body: JSON.stringify({ 
@@ -145,7 +175,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
 
     try {
       // Connect to MongoDB before handling the request
-      await connectToDatabase();
+      await connectToMongoDB();
       
       // Handle the request
       const response = await handler(request);

@@ -119,6 +119,28 @@ interface QuestionnaireSection {
   questions: Question[];
 }
 
+// Add a specific type for healthPlanRecommendation
+interface HealthPlanRecommendation {
+  domain: string;
+  text: string;
+  priority: 'high' | 'medium' | 'low';
+  source?: {
+    question: string;
+    response?: string;
+  };
+}
+
+// Add a type for the visitService.updateVisit arguments
+interface IVisitUpdateRequest {
+  status?: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
+  responses?: Record<string, any>;
+  notes?: string;
+  healthPlan?: {
+    recommendations: HealthPlanRecommendation[];
+    summary: string;
+  };
+}
+
 // AWV questionnaire sections
 const questionnaireSections: QuestionnaireSection[] = [
   {
@@ -529,8 +551,8 @@ export default function ConductVisitPage() {
       
       try {
         // Compile all recommendations into a health plan
-        const healthPlanRecommendations = [];
-        const processedRecommendations = new Set(); // To avoid duplicates
+        const healthPlanRecommendations: HealthPlanRecommendation[] = [];
+        const processedRecommendations = new Set<string>(); // To avoid duplicates
         
         // Gather recommendations from all sections and questions
         questionnaireSections.forEach(section => {
@@ -734,7 +756,7 @@ export default function ConductVisitPage() {
             recommendations: healthPlanRecommendations,
             summary: healthPlanSummary
           }
-        });
+        } as IVisitUpdateRequest);
         
         setIsSaving(false);
         router.push(`/dashboard/visits/${visitId}/report`);
@@ -747,7 +769,7 @@ export default function ConductVisitPage() {
   };
   
   // Helper function to generate a health plan summary
-  const generateHealthPlanSummary = (recommendations: any[]) => {
+  const generateHealthPlanSummary = (recommendations: HealthPlanRecommendation[]): string => {
     const highPriorityCount = recommendations.filter(rec => rec.priority === 'high').length;
     const domains = new Set(recommendations.map(rec => rec.domain));
     

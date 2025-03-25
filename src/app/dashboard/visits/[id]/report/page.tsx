@@ -578,7 +578,7 @@ export default function VisitReportPage() {
               {/* Group recommendations by domain */}
               {(() => {
                 // Group recommendations by domain
-                const grouped: Record<string, any[]> = {};
+                const grouped: Record<string, HealthPlanRecommendation[]> = {};
                 
                 // Ensure we're working with an array
                 const recommendations = Array.isArray(visit.healthPlan.recommendations) 
@@ -586,7 +586,7 @@ export default function VisitReportPage() {
                   : [];
                 
                 // Group by domain
-                recommendations.forEach(rec => {
+                recommendations.forEach((rec: HealthPlanRecommendation) => {
                   const domain = rec.domain || 'General';
                   if (!grouped[domain]) grouped[domain] = [];
                   grouped[domain].push(rec);

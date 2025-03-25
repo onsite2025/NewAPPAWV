@@ -1825,7 +1825,7 @@ export default function ConductVisitPage() {
                   />
                   <span>No</span>
                 </label>
-            </div>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -1948,22 +1948,12 @@ export default function ConductVisitPage() {
                     </p>
                   );
                 })()}
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    );
-      default:
-        return (
-          <input
-            type="text"
-            name={question.id}
-            value={responses[question.id] || ''}
-            onChange={(e) => handleInputChange(question, e)}
-            required={question.required}
-            className="w-full px-3 py-2 border rounded-md"
-            placeholder="Enter your answer"
-          />
         );
+      default:
+        return null; // Return null for unknown question types instead of showing a text input
     }
   };
   

@@ -17,11 +17,26 @@ if (!MONGODB_URI) {
 }
 
 const connectToMongoDB = async () => {
-  if (mongoose.connection.readyState === 1) {
-    return mongoose;
-  }
-
   try {
+    // Check if we're already connected
+    if (mongoose.connection.readyState === 1) {
+      console.log('Already connected to MongoDB');
+      return mongoose;
+    }
+
+    // If we're connecting or disconnecting, wait for the connection to be ready
+    if (mongoose.connection.readyState === 2 || mongoose.connection.readyState === 3) {
+      console.log('Waiting for MongoDB connection to be ready...');
+      await new Promise<void>((resolve) => {
+        mongoose.connection.once('connected', resolve);
+        mongoose.connection.once('error', (err) => {
+          console.error('MongoDB connection error:', err);
+          resolve();
+        });
+      });
+    }
+
+    // Connect to MongoDB
     await mongoose.connect(MONGODB_URI, {
       bufferCommands: false,
       serverSelectionTimeoutMS: 10000,

@@ -28,20 +28,26 @@ interface ConditionalLogic {
 interface QuestionBase {
   id: string;
   text: string;
-  required?: boolean;
-  conditional?: ConditionalLogic;
+  type: string;
+  required: boolean;
+  options?: Option[];
   includeRecommendation?: boolean;
   defaultRecommendation?: string;
+  conditional?: {
+    questionId: string;
+    value?: string | number | boolean;
+    notValue?: string | number | boolean;
+  };
   config?: {
-    units?: 'metric' | 'imperial'; // For BMI
-    heightField?: string; // For BMI reference
-    weightField?: string; // For BMI reference
-    thresholds?: { // For PHQ-2, MMSE, and CAGE
+    units?: 'metric' | 'imperial';
+    heightField?: string;
+    weightField?: string;
+    thresholds?: {
       min?: number;
       max?: number;
       warningThreshold?: number;
     };
-    subtype?: string; // For specific subtypes of questions
+    subtype?: string;
   };
 }
 
@@ -84,6 +90,8 @@ interface PHQ2Question extends QuestionBase {
   options: Option[];
   config: {
     thresholds: {
+      min: number;
+      max: number;
       warningThreshold: number;
     };
   };
@@ -94,6 +102,8 @@ interface CognitiveAssessmentQuestion extends QuestionBase {
   config: {
     subtype: 'mmse' | 'moca';
     thresholds: {
+      min: number;
+      max: number;
       warningThreshold: number;
     };
   };
@@ -104,13 +114,14 @@ interface CAGEQuestion extends QuestionBase {
   options: Option[];
   config: {
     thresholds: {
+      min: number;
+      max: number;
       warningThreshold: number;
     };
   };
 }
 
-type Question = TextQuestion | SelectQuestion | CheckboxQuestion | RangeQuestion | 
-  BMIQuestion | VitalSignsQuestion | PHQ2Question | CognitiveAssessmentQuestion | CAGEQuestion;
+type Question = TextQuestion | SelectQuestion | CheckboxQuestion | RangeQuestion | BMIQuestion | VitalSignsQuestion | PHQ2Question | CognitiveAssessmentQuestion | CAGEQuestion;
 
 interface QuestionnaireSection {
   id: string;
@@ -826,34 +837,39 @@ export default function ConductVisitPage() {
   // Render form inputs based on question type
   const renderQuestion = (question: Question) => {
     switch (question.type) {
-      case 'select':
+      case 'text':
         return (
-          <select
+          <input
+            type="text"
             name={question.id}
             value={responses[question.id] || ''}
-            onChange={(e) => handleInputChange(question, e)}
-            className="form-select w-full"
-          >
-            <option value="">Select an option</option>
-            {question.options.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.text}
-              </option>
-            ))}
-          </select>
+            onChange={(e) => handleInputChange(question as TextQuestion, e)}
+            className="form-input w-full"
+          />
         );
+      case 'textarea':
+        return (
+          <textarea
+            name={question.id}
+            value={responses[question.id] || ''}
+            onChange={(e) => handleInputChange(question as TextQuestion, e)}
+            className="form-textarea w-full"
+            rows={4}
+          />
+        );
+      case 'select':
       case 'radio':
         return (
           <div className="space-y-2">
-            {question.options.map((option) => (
+            {(question as SelectQuestion).options.map((option) => (
               <label key={option.id} className="flex items-center space-x-3">
                 <input
-                  type="radio"
+                  type={question.type === 'radio' ? 'radio' : 'select'}
                   name={question.id}
                   value={option.id}
                   checked={responses[question.id] === option.id}
-                  onChange={(e) => handleInputChange(question, e)}
-                  className="form-radio"
+                  onChange={(e) => handleInputChange(question as SelectQuestion, e)}
+                  className={`form-${question.type === 'radio' ? 'radio' : 'select'}`}
                 />
                 <span className="text-sm text-gray-700">{option.text}</span>
               </label>
@@ -863,7 +879,7 @@ export default function ConductVisitPage() {
       case 'checkbox':
         return (
           <div className="space-y-2">
-            {question.options.map((option) => (
+            {(question as CheckboxQuestion).options.map((option) => (
               <label key={option.id} className="flex items-center space-x-3">
                 <input
                   type="checkbox"
@@ -872,7 +888,7 @@ export default function ConductVisitPage() {
                   checked={Array.isArray(responses[question.id]) 
                     ? responses[question.id].includes(option.id)
                     : false}
-                  onChange={(e) => handleInputChange(question, e)}
+                  onChange={(e) => handleInputChange(question as CheckboxQuestion, e)}
                   className="form-checkbox"
                 />
                 <span className="text-sm text-gray-700">{option.text}</span>
@@ -886,29 +902,20 @@ export default function ConductVisitPage() {
             <input
               type="range"
               name={question.id}
-              min={question.min || 0}
-              max={question.max || 100}
-              value={responses[question.id] || question.min || 0}
-              onChange={(e) => handleInputChange(question, e)}
+              min={(question as RangeQuestion).min || 0}
+              max={(question as RangeQuestion).max || 100}
+              value={responses[question.id] || (question as RangeQuestion).min || 0}
+              onChange={(e) => handleInputChange(question as RangeQuestion, e)}
               className="form-range w-full"
             />
             <div className="text-sm text-gray-700 text-center">
-              {responses[question.id] || question.min || 0}
+              {responses[question.id] || (question as RangeQuestion).min || 0}
             </div>
           </div>
         );
-      case 'textarea':
-        return (
-          <textarea
-            name={question.id}
-            value={responses[question.id] || ''}
-            onChange={(e) => handleInputChange(question, e)}
-            className="form-textarea w-full"
-            rows={4}
-          />
-        );
       case 'bmi': {
-        const units = question.config?.units || 'metric';
+        const bmiQuestion = question as BMIQuestion;
+        const units = bmiQuestion.config?.units || 'metric';
         const heightLabel = units === 'metric' ? 'Height (cm)' : 'Height (in)';
         const weightLabel = units === 'metric' ? 'Weight (kg)' : 'Weight (lbs)';
         
@@ -1001,7 +1008,8 @@ export default function ConductVisitPage() {
         );
       }
       case 'vitalSigns': {
-        const subtype = question.config?.subtype || 'full';
+        const vitalSignsQuestion = question as VitalSignsQuestion;
+        const subtype = vitalSignsQuestion.config?.subtype || 'full';
         const isFull = subtype === 'full';
         
         return (
@@ -1110,7 +1118,8 @@ export default function ConductVisitPage() {
           </div>
         );
       }
-      case 'phq2':
+      case 'phq2': {
+        const phq2Question = question as PHQ2Question;
         return (
           <div className="space-y-4">
             <div className="p-3 bg-blue-50 border border-blue-100 rounded mb-4">
@@ -1209,12 +1218,13 @@ export default function ConductVisitPage() {
             )}
           </div>
         );
+      }
       case 'cognitiveAssessment': {
-        const testType = question.config?.subtype || 'mmse';
+        const cogQuestion = question as CognitiveAssessmentQuestion;
+        const testType = cogQuestion.config?.subtype || 'mmse';
         const isMMSE = testType === 'mmse';
         const scoreMax = isMMSE ? 30 : 30; // Both MMSE and MoCA are scored out of 30
         
-        // Simplified implementation - in a real app, would have a full assessment form
         return (
           <div className="space-y-4">
             <div className="p-3 bg-blue-50 border border-blue-100 rounded mb-4">
@@ -1235,7 +1245,7 @@ export default function ConductVisitPage() {
                 value={responses[question.id] || ''}
                 onChange={(e) => {
                   const score = parseInt(e.target.value);
-                  const warningThreshold = question.config?.thresholds?.warningThreshold || 24;
+                  const warningThreshold = cogQuestion.config?.thresholds?.warningThreshold || 24;
                   const risk = score < warningThreshold ? 'High' : 'Low';
                   
                   setResponses({
@@ -1257,7 +1267,7 @@ export default function ConductVisitPage() {
                   Risk: {responses[`${question.id}_risk`]}
                   {responses[`${question.id}_risk`] === 'High' && (
                     <span className="block mt-1 text-red-600">
-                      Score below threshold ({question.config?.thresholds?.warningThreshold || 24}) indicates potential cognitive impairment
+                      Score below threshold ({cogQuestion.config?.thresholds?.warningThreshold || 24}) indicates potential cognitive impairment
                     </span>
                   )}
                 </p>
@@ -1266,7 +1276,8 @@ export default function ConductVisitPage() {
           </div>
         );
       }
-      case 'cageScreening':
+      case 'cageScreening': {
+        const cageQuestion = question as CAGEQuestion;
         return (
           <div className="space-y-4">
             <div className="p-3 bg-blue-50 border border-blue-100 rounded mb-4">
@@ -1366,13 +1377,14 @@ export default function ConductVisitPage() {
             )}
           </div>
         );
+      }
       default:
         return (
           <input
             type="text"
-            name={question.id}
-            value={responses[question.id] || ''}
-            onChange={(e) => handleInputChange(question, e)}
+            name={(question as TextQuestion).id}
+            value={responses[(question as TextQuestion).id] || ''}
+            onChange={(e) => handleInputChange(question as TextQuestion, e)}
             className="form-input w-full"
           />
         );

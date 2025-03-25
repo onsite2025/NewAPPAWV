@@ -63,11 +63,6 @@ const navItems = [
         href: '/dashboard/settings/practice',
         icon: <FiActivity className="w-4 h-4" />,
       },
-      {
-        label: 'Integrations',
-        href: '/dashboard/settings/integrations',
-        icon: <FiCpu className="w-4 h-4" />,
-      },
     ],
   },
 ];

@@ -52,7 +52,10 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
     
-    return NextResponse.json(patient);
+    return NextResponse.json({
+      success: true,
+      data: patient
+    });
   } catch (error) {
     console.error(`Error fetching patient ${params.id}:`, error);
     return NextResponse.json(
@@ -125,10 +128,10 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
     
-    return NextResponse.json(
-      { message: 'Patient deleted successfully' },
-      { status: 200 }
-    );
+    return NextResponse.json({
+      success: true,
+      data: { message: 'Patient deleted successfully' }
+    });
   } catch (error) {
     console.error(`Error deleting patient ${params.id}:`, error);
     return NextResponse.json(

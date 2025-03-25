@@ -5,8 +5,10 @@ const nextConfig = {
   
   // Enable experimental features for API routes
   experimental: {
-    serverActions: true,
-    serverComponentsExternalPackages: ['mongoose']
+    serverActions: {
+      allowedOrigins: ['localhost:3000', 'finalawv.netlify.app']
+    },
+    serverExternalPackages: ['mongoose']
   },
   
   // Disable image optimization for improved build compatibility

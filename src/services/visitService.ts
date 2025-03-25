@@ -70,7 +70,8 @@ interface IVisitSearchParams {
   sortOrder?: 'asc' | 'desc';
 }
 
-const BASE_URL = '/.netlify/functions/api';
+const isDevelopment = process.env.NODE_ENV === 'development';
+const BASE_URL = isDevelopment ? 'http://localhost:8888/.netlify/functions/api' : '/.netlify/functions/api';
 
 const visitService = {
   getVisits: async (params: IVisitSearchParams = {}): Promise<IVisitsResponse> => {

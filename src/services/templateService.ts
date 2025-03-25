@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from '@/utils/uuid';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 const LOCAL_STORAGE_KEY = 'templates';
+const BASE_URL = isDevelopment ? 'http://localhost:8888/.netlify/functions/api' : '/.netlify/functions/api';
 
 // Utility functions for localStorage
 const getLocalTemplates = (): ITemplateResponse[] => {
@@ -46,8 +47,6 @@ interface TemplateSearchParams {
   sortField?: string;
   sortOrder?: 'asc' | 'desc';
 }
-
-const BASE_URL = '/.netlify/functions/api';
 
 const templateService = {
   async getTemplates(params: TemplateSearchParams = {}): Promise<TemplatesResponse> {

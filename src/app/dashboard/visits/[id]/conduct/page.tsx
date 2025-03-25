@@ -396,167 +396,93 @@ export default function ConductVisitPage() {
   
   // Render form inputs based on question type
   const renderQuestion = (question: Question) => {
-    // Check if this question should be shown based on conditional logic
-    if (question.conditional) {
-      const conditionQuestion = question.conditional.questionId;
-      const conditionValue = question.conditional.value;
-      const notValue = question.conditional.notValue;
-      
-      if (
-        (conditionValue && responses[conditionQuestion] !== conditionValue) ||
-        (notValue && responses[conditionQuestion] === notValue)
-      ) {
-        return null;
-      }
-    }
+    const currentValue = responses[question.id];
     
-    return (
-      <div className="space-y-4">
-        {/* Render the appropriate question input based on type */}
-        {(() => {
-          switch (question.type) {
-            case 'text':
-              return (
+    switch (question.type) {
+      case 'select':
+      case 'radio':
+        return (
+          <div className="space-y-2">
+            {(question as SelectQuestion).options.map((option) => (
+              <label key={option.id} className="flex items-center space-x-2">
                 <input
-                  type="text"
-                  id={question.id}
-                  value={responses[question.id] || ''}
-                  onChange={e => handleInputChange(question.id, e.target.value)}
-                  className="form-input w-full"
-                  required={question.required}
+                  type="radio"
+                  name={question.id}
+                  value={option.id}
+                  checked={currentValue === option.id}
+                  onChange={(e) => handleInputChange(question.id, e.target.value)}
+                  className="form-radio"
                 />
-              );
-              
-            case 'textarea':
-              return (
-                <textarea
-                  id={question.id}
-                  value={responses[question.id] || ''}
-                  onChange={e => handleInputChange(question.id, e.target.value)}
-                  rows={4}
-                  className="form-input w-full"
-                  required={question.required}
-                />
-              );
-              
-            case 'select':
-              return (
-                <select
-                  id={question.id}
-                  value={responses[question.id] || ''}
-                  onChange={e => handleInputChange(question.id, e.target.value)}
-                  className="form-input w-full"
-                  required={question.required}
-                >
-                  <option value="">Select an option</option>
-                  {question.options.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.text}
-                    </option>
-                  ))}
-                </select>
-              );
-              
-            case 'radio':
-              return (
-                <div className="flex flex-col space-y-2">
-                  {question.options.map((option) => (
-                    <label key={option.id} className="inline-flex items-center">
-                      <input
-                        type="radio"
-                        name={question.id}
-                        value={option.id}
-                        checked={responses[question.id] === option.id}
-                        onChange={e => handleInputChange(question.id, e.target.value)}
-                        className="form-radio"
-                        required={question.required}
-                      />
-                      <span className="ml-2">{option.text}</span>
-                    </label>
-                  ))}
-                </div>
-              );
-              
-            case 'checkbox':
-              return (
-                <div className="flex flex-col space-y-2">
-                  {question.options.map((option) => (
-                    <label key={option.id} className="inline-flex items-center">
-                      <input
-                        type="checkbox"
-                        value={option.id}
-                        checked={Array.isArray(responses[question.id]) && responses[question.id]?.includes(option.id)}
-                        onChange={e => {
-                          const currentValues = Array.isArray(responses[question.id]) ? [...responses[question.id]] : [];
-                          
-                          if (e.target.checked) {
-                            handleInputChange(question.id, [...currentValues, option.id]);
-                          } else {
-                            handleInputChange(
-                              question.id,
-                              currentValues.filter((value: string) => value !== option.id)
-                            );
-                          }
-                        }}
-                        className="form-checkbox"
-                      />
-                      <span className="ml-2">{option.text}</span>
-                    </label>
-                  ))}
-                </div>
-              );
-              
-            case 'range':
-              return (
-                <div>
-                  <input
-                    type="range"
-                    id={question.id}
-                    min={question.min || 0}
-                    max={question.max || 10}
-                    value={responses[question.id] || (question.min || 0)}
-                    onChange={e => handleInputChange(question.id, e.target.value)}
-                    className="w-full"
-                    required={question.required}
-                  />
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>{question.min || 0}</span>
-                    <span>{((question.max || 10) - (question.min || 0)) / 2 + (question.min || 0)}</span>
-                    <span>{question.max || 10}</span>
-                  </div>
-                </div>
-              );
-              
-            default:
-              return null;
-          }
-        })()}
-        
-        {/* Provider recommendation field - only show if it should be included in the health plan */}
-        {responses[question.id] && question.includeRecommendation && (
-          <div className="mt-4 border-t pt-3">
-            <div className="flex justify-between items-center mb-1">
-              <label className="block text-sm font-medium text-gray-700">
-                Provider Recommendation
+                <span>{option.text}</span>
               </label>
-              <span className="text-xs text-gray-500">Auto-populated from template</span>
-            </div>
-            <textarea
-              value={recommendations[question.id] || ''}
-              onChange={e => {
-                setRecommendations(prev => ({
-                  ...prev,
-                  [question.id]: e.target.value
-                }));
-              }}
-              className="form-textarea w-full border-green-200 bg-green-50"
-              rows={3}
-              placeholder="Recommendation will be shown in the patient's health plan"
-            />
+            ))}
           </div>
-        )}
-      </div>
-    );
+        );
+        
+      case 'checkbox':
+        return (
+          <div className="space-y-2">
+            {(question as CheckboxQuestion).options.map((option) => (
+              <label key={option.id} className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  value={option.id}
+                  checked={Array.isArray(currentValue) && currentValue.includes(option.id)}
+                  onChange={(e) => {
+                    const newValue = Array.isArray(currentValue) ? [...currentValue] : [];
+                    if (e.target.checked) {
+                      newValue.push(option.id);
+                    } else {
+                      const index = newValue.indexOf(option.id);
+                      if (index > -1) {
+                        newValue.splice(index, 1);
+                      }
+                    }
+                    handleInputChange(question.id, newValue);
+                  }}
+                  className="form-checkbox"
+                />
+                <span>{option.text}</span>
+              </label>
+            ))}
+          </div>
+        );
+        
+      case 'range':
+        return (
+          <div className="space-y-2">
+            <input
+              type="range"
+              min={(question as RangeQuestion).min || 0}
+              max={(question as RangeQuestion).max || 100}
+              value={currentValue || 0}
+              onChange={(e) => handleInputChange(question.id, parseInt(e.target.value))}
+              className="w-full"
+            />
+            <div className="text-center">{currentValue || 0}</div>
+          </div>
+        );
+        
+      case 'textarea':
+        return (
+          <textarea
+            value={currentValue || ''}
+            onChange={(e) => handleInputChange(question.id, e.target.value)}
+            className="w-full p-2 border rounded"
+            rows={4}
+          />
+        );
+        
+      default:
+        return (
+          <input
+            type="text"
+            value={currentValue || ''}
+            onChange={(e) => handleInputChange(question.id, e.target.value)}
+            className="w-full p-2 border rounded"
+          />
+        );
+    }
   };
   
   if (isLoading) {

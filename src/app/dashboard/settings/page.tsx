@@ -59,12 +59,6 @@ const tabs = [
     allowedRoles: ['admin', 'provider']
   },
   {
-    name: 'Integrations',
-    href: '/dashboard/settings/integrations',
-    icon: <FiCpu className="w-5 h-5" />,
-    allowedRoles: ['admin', 'provider', 'staff']
-  },
-  {
     name: 'Security',
     href: '/dashboard/settings/security',
     icon: <FiShield className="w-5 h-5" />,

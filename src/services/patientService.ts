@@ -74,7 +74,8 @@ const mockPatients: Patient[] = [
   }
 ];
 
-const BASE_URL = process.env.NODE_ENV === 'development' ? '/api' : '/.netlify/functions/api';
+const isDevelopment = process.env.NODE_ENV === 'development';
+const BASE_URL = isDevelopment ? 'http://localhost:8888/.netlify/functions/api' : '/.netlify/functions/api';
 
 // Helper function to handle API responses
 async function handleResponse(response: Response) {

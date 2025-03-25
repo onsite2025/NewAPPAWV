@@ -228,7 +228,7 @@ export default function ConductVisitPage() {
                   switch (question.type) {
                     case 'multipleChoice':
                       // If it's a checkbox question (multiple selections allowed)
-                      if (question.options?.some((opt: any) => opt.selected)) {
+                      if (question.allowMultiple || question.options?.some((opt: any) => opt.selected)) {
                         questionType = 'checkbox';
                       }
                       // If it's a select question (dropdown)

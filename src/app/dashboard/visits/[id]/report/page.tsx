@@ -254,10 +254,45 @@ export default function VisitReportPage() {
       
       for (const question of section.questions) {
         if (visit.responses[question.id]) {
+          // Find the matching option for the response to get the label
+          let formattedResponse = visit.responses[question.id];
+          let recommendation = '';
+          
+          // Handle different response types
+          if (question.type === 'multipleChoice' || question.type === 'boolean') {
+            if (Array.isArray(formattedResponse)) {
+              // For checkbox-type questions
+              const selectedOptions = formattedResponse.map(respId => {
+                const option = question.options?.find((opt: any) => opt.value === respId || opt.id === respId);
+                return option ? option.label || option.text : respId;
+              });
+              formattedResponse = selectedOptions.join(', ');
+              
+              // Collect recommendations from all selected options
+              const recommendations = [];
+              for (const respId of visit.responses[question.id]) {
+                const option = question.options?.find((opt: any) => opt.value === respId || opt.id === respId);
+                if (option && option.recommendation) {
+                  recommendations.push(option.recommendation);
+                }
+              }
+              if (recommendations.length > 0) {
+                recommendation = recommendations.join('\n');
+              }
+            } else {
+              // For radio/select-type questions
+              const option = question.options?.find((opt: any) => opt.value === formattedResponse || opt.id === formattedResponse);
+              if (option) {
+                formattedResponse = option.label || option.text;
+                recommendation = option.recommendation || '';
+              }
+            }
+          }
+          
           sectionResponses.push({
             question: question.text,
-            response: visit.responses[question.id],
-            recommendation: question.recommendation || ''
+            response: formattedResponse,
+            recommendation: recommendation || question.recommendation || ''
           });
         }
       }

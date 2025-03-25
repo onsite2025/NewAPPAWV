@@ -248,6 +248,62 @@ export default function VisitDetailPage() {
               </div>
             </div>
           )}
+          
+          {/* Display Health Plan */}
+          {visit.healthPlan && (
+            <div className="card mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Personalized Health Plan</h3>
+              </div>
+              
+              {visit.healthPlan.summary && (
+                <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-medium text-blue-700 mb-2">Summary</h4>
+                  <p>{visit.healthPlan.summary}</p>
+                </div>
+              )}
+              
+              {visit.healthPlan.recommendations && visit.healthPlan.recommendations.length > 0 ? (
+                <div className="space-y-4">
+                  <h4 className="font-medium text-gray-700 mb-2">Recommendations</h4>
+                  
+                  {visit.healthPlan.recommendations.map((rec: any, index: number) => (
+                    <div key={index} className="border-l-4 pl-4 mb-4 pb-2" 
+                      style={{ 
+                        borderLeftColor: rec.priority === 'high' 
+                          ? '#ef4444' 
+                          : rec.priority === 'medium' 
+                            ? '#f59e0b' 
+                            : '#10b981'
+                      }}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="font-medium">{rec.domain}</div>
+                        <div className={`text-xs font-bold rounded-full px-2 py-1 ${
+                          rec.priority === 'high' 
+                            ? 'bg-red-100 text-red-800' 
+                            : rec.priority === 'medium' 
+                              ? 'bg-amber-100 text-amber-800' 
+                              : 'bg-green-100 text-green-800'
+                        }`}>
+                          {rec.priority.charAt(0).toUpperCase() + rec.priority.slice(1)} Priority
+                        </div>
+                      </div>
+                      <p className="text-gray-800 mt-1">{rec.text}</p>
+                      {rec.source && (
+                        <div className="text-sm text-gray-500 mt-1">
+                          <span className="font-medium">Source:</span> {rec.source.question}
+                          {rec.source.response && ` (${rec.source.response})`}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 italic">No specific recommendations at this time.</p>
+              )}
+            </div>
+          )}
         </div>
         
         <div>

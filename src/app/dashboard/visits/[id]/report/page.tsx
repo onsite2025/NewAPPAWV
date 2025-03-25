@@ -203,6 +203,65 @@ export default function VisitReportPage() {
     }
   };
   
+  // Format the recommendations and health plan content for the report
+  const renderHealthPlan = () => {
+    if (!visit.healthPlan || !visit.healthPlan.recommendations || visit.healthPlan.recommendations.length === 0) {
+      return (
+        <div className="mb-8">
+          <h3 className="text-xl font-bold mb-3">Health Plan</h3>
+          <p className="text-gray-600 italic">No specific health recommendations at this time.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mb-8">
+        <h3 className="text-xl font-bold mb-3">Personalized Health Plan</h3>
+        
+        {visit.healthPlan.summary && (
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+            <h4 className="font-semibold text-blue-700 mb-2">Summary</h4>
+            <p className="text-blue-900">{visit.healthPlan.summary}</p>
+          </div>
+        )}
+        
+        <div className="mt-4">
+          <h4 className="font-semibold mb-2">Recommendations</h4>
+          
+          <div className="space-y-3">
+            {visit.healthPlan.recommendations.map((rec: any, index: number) => (
+              <div key={index} className={`p-3 border-l-4 bg-white rounded shadow-sm
+                ${rec.priority === 'high' 
+                  ? 'border-red-500' 
+                  : rec.priority === 'medium' 
+                    ? 'border-yellow-500' 
+                    : 'border-green-500'}`}>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-medium">{rec.domain}</span>
+                  <span className={`text-xs font-semibold rounded-full px-2 py-1
+                    ${rec.priority === 'high' 
+                      ? 'bg-red-100 text-red-800' 
+                      : rec.priority === 'medium' 
+                        ? 'bg-yellow-100 text-yellow-800' 
+                        : 'bg-green-100 text-green-800'}`}>
+                    {rec.priority.toUpperCase()}
+                  </span>
+                </div>
+                <p>{rec.text}</p>
+                {rec.source && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Based on: {rec.source.question}
+                    {rec.source.response && ` (${rec.source.response})`}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
   if (isLoading) {
     return (
       <div className="animate-pulse">
@@ -451,182 +510,163 @@ export default function VisitReportPage() {
   }
   
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6 print:hidden">
-        <h1 className="text-2xl font-bold">Visit Report</h1>
-        <div className="flex space-x-2">
-          <button onClick={handlePrint} className="btn-primary flex items-center">
-            <FiPrinter className="mr-1" /> {isPrinting ? 'Printing...' : 'Print'}
-          </button>
-          <button onClick={handleDownloadPDF} className="btn-secondary flex items-center">
-            <FiDownload className="mr-1" /> Download PDF
-          </button>
-          <button onClick={handleEmailReport} className="btn-secondary flex items-center">
-            <FiMail className="mr-1" /> Email
-          </button>
-          <Link href={`/dashboard/visits/${visitId}`} className="btn-secondary flex items-center">
-            <FiArrowLeft className="mr-1" /> Back
+    <div className={`container mx-auto p-4 ${isPrinting ? 'print-mode' : ''}`}>
+      <div className="hidden-print mb-6 print:hidden">
+        <div className="flex justify-between items-center">
+          <Link href={`/dashboard/visits/${visitId}`} className="btn-ghost">
+            <FiArrowLeft className="h-4 w-4 mr-1" /> Back to Visit
           </Link>
+          
+          <div className="flex space-x-2">
+            <button onClick={handlePrint} className="btn-secondary">
+              <FiPrinter className="h-4 w-4 mr-1" /> Print
+            </button>
+            
+            <button 
+              onClick={handleDownloadPDF} 
+              className="btn-primary"
+              disabled={generatingPDF || !pdfModules.jspdf || !pdfModules.html2canvas}
+            >
+              {generatingPDF 
+                ? <>Generating...</>
+                : <><FiDownload className="h-4 w-4 mr-1" /> Download PDF</>
+              }
+            </button>
+            
+            <button onClick={handleEmailReport} className="btn-ghost">
+              <FiMail className="h-4 w-4 mr-1" /> Email
+            </button>
+          </div>
         </div>
       </div>
       
-      <div ref={reportRef} className="mx-auto max-w-4xl bg-white shadow-md rounded-lg p-6 mb-6 print:shadow-none print:p-0">
-        <div className="border-b pb-6 mb-6 print:border-b-2">
-          <div className="flex justify-between items-start">
-            <div>
-              <h2 className="text-2xl font-bold text-primary-600">{templateName} Report</h2>
-              <p className="text-lg text-gray-600">
-                {formatDate(visit.scheduledDate)}
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="font-bold text-gray-800">Healthcare Clinic</div>
-              <div className="text-gray-600">123 Health Street</div>
-              <div className="text-gray-600">Anytown, CA 12345</div>
-              <div className="text-gray-600">(555) 123-4567</div>
-            </div>
+      <div className="report-content" ref={reportRef}>
+        <div className="mb-6 p-4 print:p-0 bg-white rounded-lg shadow-sm print:shadow-none">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold mb-2">Health Assessment Report</h1>
+            <p className="text-gray-600">Visit Date: {formatDate(visit.scheduledDate)}</p>
           </div>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div>
-            <h3 className="text-lg font-semibold mb-3 border-b pb-2 print:border-b">Patient Information</h3>
-            <div className="space-y-2">
-              <div className="flex items-center">
-                <FiUser className="mr-2 text-gray-400" />
-                <div>
-                  <div className="font-medium">{patientName}</div>
-                  <div className="text-gray-600">
-                    DOB: {formatDate(patientDOB)} ({patientAge} years)
-                  </div>
+          
+          <div className="mb-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center mb-4">
+              <FiUser className="text-gray-400 mr-2 h-5 w-5 mt-1 sm:mt-0" />
+              <div>
+                <div className="text-sm text-gray-600">Patient</div>
+                <div className="font-medium">
+                  {patientName}
+                  {patientAge !== 'N/A' && (
+                    <span className="ml-2 text-gray-600">({patientAge} years)</span>
+                  )}
                 </div>
               </div>
             </div>
           </div>
           
-          <div>
-            <h3 className="text-lg font-semibold mb-3 border-b pb-2 print:border-b">Visit Details</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="text-gray-600">Provider:</div>
-              <div>{providerName}</div>
-              
-              <div className="text-gray-600">Template:</div>
-              <div>{templateName}</div>
-              
-              <div className="text-gray-600">Date:</div>
-              <div>{formatDate(visit.scheduledDate)}</div>
-              
-              <div className="text-gray-600">Status:</div>
-              <div className="capitalize">{visit.status}</div>
+          {template && (
+            <div className="mb-8">
+              <h3 className="text-xl font-bold mb-3">Assessment: {template.name}</h3>
+              {template.description && (
+                <p className="text-gray-600 mb-4">{template.description}</p>
+              )}
             </div>
-          </div>
-        </div>
-        
-        {organizedResponses.length > 0 ? (
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold mb-3 border-b pb-2 print:border-b">Assessment Results</h3>
-            
-            <div className="space-y-6">
-              {organizedResponses.map((section, sectionIndex) => (
-                <div key={sectionIndex}>
-                  <h4 className="font-medium text-primary-600 mb-2">{section.section}</h4>
-                  <div className="space-y-4">
-                    {section.responses.map((item, index) => (
-                      <div key={index} className="p-3 bg-gray-50 rounded-md border print:border">
-                        <div className="font-medium">{item.question}</div>
-                        <div className="text-sm text-gray-600 mb-2">
-                          Response: {Array.isArray(item.response) ? item.response.join(', ') : item.response}
-                        </div>
-                        {item.recommendation && (
-                          <div className="text-sm bg-blue-50 p-2 rounded border border-blue-100 print:bg-white">
-                            <span className="font-medium text-blue-800">Recommendation:</span> {item.recommendation}
+          )}
+          
+          {/* Render responses by section */}
+          {template && visit.responses && Object.keys(visit.responses).length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-xl font-bold mb-3">Assessment Findings</h3>
+              
+              {template.sections.map((section: any) => {
+                // Check if there are any responses for this section
+                const sectionQuestionIds = section.questions.map((q: any) => q.id);
+                const sectionHasResponses = sectionQuestionIds.some(id => visit.responses[id] !== undefined);
+                
+                if (!sectionHasResponses) {
+                  return null;
+                }
+                
+                return (
+                  <div key={section.id} className="mb-6">
+                    <h4 className="text-lg font-semibold mb-2">{section.title}</h4>
+                    {section.description && (
+                      <p className="text-gray-600 mb-3">{section.description}</p>
+                    )}
+                    
+                    <div className="space-y-3">
+                      {section.questions.map((question: any) => {
+                        if (visit.responses[question.id] === undefined) {
+                          return null;
+                        }
+                        
+                        let responseDisplay;
+                        const response = visit.responses[question.id];
+                        
+                        if (question.type === 'multipleChoice' && question.options) {
+                          if (Array.isArray(response)) {
+                            // Multiple selection
+                            const selectedOptions = question.options
+                              .filter((opt: any) => response.includes(opt.value))
+                              .map((opt: any) => opt.label);
+                            responseDisplay = selectedOptions.join(', ');
+                          } else {
+                            // Single selection
+                            const selectedOption = question.options.find((opt: any) => opt.value === response);
+                            responseDisplay = selectedOption ? selectedOption.label : response;
+                          }
+                        } else if (question.type === 'boolean') {
+                          responseDisplay = response === true || response === 'true' ? 'Yes' : 'No';
+                        } else if (question.type === 'bmi' && typeof response === 'object') {
+                          responseDisplay = `BMI: ${response.value} (${response.category})`;
+                        } else if (question.type === 'vitalSigns' && typeof response === 'object') {
+                          const vitals = [];
+                          if (response.systolic && response.diastolic) {
+                            vitals.push(`Blood Pressure: ${response.systolic}/${response.diastolic} mmHg`);
+                          }
+                          if (response.heartRate) {
+                            vitals.push(`Heart Rate: ${response.heartRate} bpm`);
+                          }
+                          if (response.temperature) {
+                            vitals.push(`Temperature: ${response.temperature}° ${response.temperatureUnit || 'C'}`);
+                          }
+                          if (response.respiratoryRate) {
+                            vitals.push(`Respiratory Rate: ${response.respiratoryRate} bpm`);
+                          }
+                          if (response.oxygenSaturation) {
+                            vitals.push(`Oxygen Saturation: ${response.oxygenSaturation}%`);
+                          }
+                          responseDisplay = vitals.join(', ');
+                        } else {
+                          responseDisplay = String(response);
+                        }
+                        
+                        return (
+                          <div key={question.id} className="pb-3 border-b border-gray-200">
+                            <div className="font-medium">{question.text}</div>
+                            <div className="text-gray-800">{responseDisplay}</div>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="mb-8 p-4 bg-gray-50 rounded-md border">
-            <p className="text-gray-500 italic">No assessment responses recorded for this visit.</p>
-          </div>
-        )}
-        
-        {visit.notes && (
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold mb-3 border-b pb-2 print:border-b">Visit Notes</h3>
-            <div className="p-4 bg-gray-50 rounded-md border">
-              <p>{visit.notes}</p>
-            </div>
-          </div>
-        )}
-        
-        {visit.healthPlan && visit.healthPlan.recommendations && visit.healthPlan.recommendations.length > 0 && (
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold mb-3 border-b pb-2 print:border-b">Personalized Health Plan</h3>
-            
-            {visit.healthPlan.summary && (
-              <div className="p-4 bg-blue-50 rounded-md border border-blue-200 mb-4 print:bg-white">
-                <p className="text-blue-800">{visit.healthPlan.summary}</p>
-              </div>
-            )}
-            
-            <div className="space-y-4">
-              {/* Group recommendations by domain */}
-              {(() => {
-                // Group recommendations by domain
-                const grouped: Record<string, HealthPlanRecommendation[]> = {};
-                
-                // Ensure we're working with an array
-                const recommendations = Array.isArray(visit.healthPlan.recommendations) 
-                  ? visit.healthPlan.recommendations 
-                  : [];
-                
-                // Group by domain
-                recommendations.forEach((rec: HealthPlanRecommendation) => {
-                  const domain = rec.domain || 'General';
-                  if (!grouped[domain]) grouped[domain] = [];
-                  grouped[domain].push(rec);
-                });
-                
-                // Convert to array of domain/recs pairs and render
-                return Object.entries(grouped).map(([domain, recs]) => (
-                  <div key={domain} className="border rounded-md overflow-hidden">
-                    <div className="bg-gray-100 p-3 font-medium">{domain}</div>
-                    <div className="divide-y">
-                      {recs.map((rec, i) => (
-                        <div key={i} className={`p-4 ${rec.priority === 'high' ? 'bg-red-50' : 'bg-white'}`}>
-                          <div className="flex items-start">
-                            {rec.priority === 'high' && (
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-600 mr-2 flex-shrink-0">
-                                !
-                              </span>
-                            )}
-                            <div>
-                              <p className={`${rec.priority === 'high' ? 'font-medium' : ''}`}>{rec.text}</p>
-                              {rec.source && rec.source.question && (
-                                <p className="text-sm text-gray-600 mt-1">
-                                  Based on: {rec.source.question} {rec.source.response && `(${rec.source.response})`}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
-                ));
-              })()}
+                );
+              })}
             </div>
+          )}
+          
+          {/* Render health plan */}
+          {renderHealthPlan()}
+          
+          {/* Visit notes */}
+          {visit.notes && (
+            <div className="mb-8">
+              <h3 className="text-xl font-bold mb-3">Additional Notes</h3>
+              <p className="whitespace-pre-line">{visit.notes}</p>
+            </div>
+          )}
+          
+          <div className="text-center mt-12 text-sm text-gray-500">
+            <p>Report generated on {new Date().toLocaleDateString()}</p>
           </div>
-        )}
-        
-        <div className="mt-12 pt-6 border-t text-sm text-gray-500 print:mt-8">
-          <p>This report was generated on {format(new Date(), 'MMMM dd, yyyy')} and is for informational purposes only.</p>
-          <p>Please consult with your healthcare provider for professional medical advice.</p>
         </div>
       </div>
     </div>

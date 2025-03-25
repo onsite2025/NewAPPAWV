@@ -1236,303 +1236,214 @@ export default function ConductVisitPage() {
   };
   
   const handleCompleteVisit = async () => {
-    const isValid = validateSection(activeSection);
-    
-    if (isValid) {
+    try {
       setIsSaving(true);
       
-      try {
-        // Compile all recommendations into a health plan
-        const healthPlanRecommendations: HealthPlanRecommendation[] = [];
-        const processedRecommendations = new Set<string>(); // To avoid duplicates
-        
-        // First, add recommendations that were collected during input changes
-        console.log('Recommendations from answers:', recommendations);
-        Object.entries(recommendations).forEach(([questionId, recommendationText]) => {
-          if (recommendationText && !processedRecommendations.has(recommendationText)) {
-            // Find which section this question belongs to
-            let sectionTitle = 'General';
-            let questionText = 'Unknown';
-            let responseText = 'Unknown';
+      // Validate all sections
+      let allValid = true;
+      
+      for (let i = 0; i < questionnaireSections.length; i++) {
+        const isValid = validateSection(i);
+        if (!isValid) {
+          allValid = false;
+          break;
+        }
+      }
+      
+      if (!allValid) {
+        setIsSaving(false);
+        return;
+      }
+      
+      // Collect all recommendations from question responses
+      const healthPlanRecommendations: HealthPlanRecommendation[] = [];
+      const processedRecommendations = new Set<string>(); // To avoid duplicates
+      
+      // Process all sections and questions to extract recommendations
+      questionnaireSections.forEach((section: any) => {
+        section.questions.forEach((question: any) => {
+          // Skip questions that don't have responses
+          if (!responses[question.id]) return;
+          
+          // Extract recommendations based on question type
+          if (question.type === 'multipleChoice' && question.options) {
+            // For multiple choice questions
+            const selectedValues = Array.isArray(responses[question.id]) 
+              ? responses[question.id] 
+              : [responses[question.id]];
             
-            for (const section of questionnaireSections) {
-              for (const question of section.questions) {
-                if (question.id === questionId) {
-                  sectionTitle = section.title;
-                  questionText = question.text;
-                  responseText = Array.isArray(responses[questionId]) 
-                    ? responses[questionId].join(', ') 
-                    : String(responses[questionId] || '');
-                  break;
-                }
-              }
-            }
-            
-            healthPlanRecommendations.push({
-              domain: sectionTitle,
-              text: recommendationText,
-              priority: 'medium',
-              source: {
-            question: questionText,
-                response: responseText
-              }
-            });
-            
-            processedRecommendations.add(recommendationText);
-          }
-        });
-        
-        // Gather recommendations from all sections and questions
-        questionnaireSections.forEach(section => {
-          section.questions.forEach(question => {
-            // Handle recommendations from multiple choice questions
-            if (question.type === 'multipleChoice' && question.options && question.includeRecommendation) {
-              
-              // For checkbox questions (multiple selections)
-              if (question.config?.multiple && Array.isArray(responses[question.id])) {
-                const selectedOptions = question.options.filter(opt => 
-                  responses[question.id].includes(getOptionValue(opt))
-                );
-                
-                selectedOptions.forEach(option => {
-                  if (option.recommendation && !processedRecommendations.has(option.recommendation)) {
-                    healthPlanRecommendations.push({
-                      domain: section.title,
-                      text: option.recommendation,
-                      priority: 'medium',
-                      source: {
-                        question: question.text,
-                        response: option.label || option.text || ''
-                      }
-                    });
-                    processedRecommendations.add(option.recommendation);
-                  }
-                });
-              } 
-              // For radio/select questions (single selection)
-              else if (responses[question.id]) {
-                const selectedOption = question.options.find(opt => 
-                  getOptionValue(opt) === responses[question.id]
-                );
-                
-                if (selectedOption?.recommendation && !processedRecommendations.has(selectedOption.recommendation)) {
-                  healthPlanRecommendations.push({
-                    domain: section.title,
-                    text: selectedOption.recommendation,
-                    priority: 'medium',
-                    source: {
-                      question: question.text,
-                      response: getOptionLabel(selectedOption)
-                    }
-                  });
-                  processedRecommendations.add(selectedOption.recommendation);
-                }
-              }
-            }
-            
-            // Handle BMI recommendations
-            if ((question.type === 'bmi' || question.text?.toLowerCase().includes('bmi')) && 
-                responses[`${question.id}_height`] && responses[`${question.id}_weight`]) {
-              const height = parseFloat(responses[`${question.id}_height`]);
-              const weight = parseFloat(responses[`${question.id}_weight`]);
-              const bmiResult = calculateBMI(height, weight, question.config?.units);
-              const bmiValue = bmiResult.value;
-              const bmiCategory = bmiResult.category;
-              const bmiRecommendation = getBMIRecommendation(bmiValue);
-              
-              if (bmiRecommendation && !processedRecommendations.has(bmiRecommendation)) {
-                healthPlanRecommendations.push({
-                  domain: 'Weight Management',
-                  text: bmiRecommendation,
-                  priority: bmiValue >= 30 || bmiValue < 18.5 ? 'high' : 'medium',
-                  source: {
-                    question: question.text,
-                    response: `BMI: ${bmiValue.toFixed(1)} (${bmiCategory})`
-                  }
-                });
-                processedRecommendations.add(bmiRecommendation);
-              }
-            }
-            
-            // Handle vital signs recommendations
-            if ((question.type === 'vitalSigns' || question.text?.toLowerCase().includes('vital')) && 
-                responses[`${question.id}_systolic`] && 
-                responses[`${question.id}_diastolic`] && 
-                responses[`${question.id}_heartRate`]) {
-              
-              const systolic = responses[`${question.id}_systolic`];
-              const diastolic = responses[`${question.id}_diastolic`];
-              const heartRate = responses[`${question.id}_heartRate`];
-              
-              if (systolic && diastolic && heartRate) {
-                const vitalSignsRecommendation = getVitalSignsRecommendation(
-                  parseFloat(systolic), 
-                  parseFloat(diastolic), 
-                  parseFloat(heartRate)
-                );
-                
-                if (vitalSignsRecommendation && !processedRecommendations.has(vitalSignsRecommendation)) {
-                  const isPriority = parseFloat(systolic) >= 140 || parseFloat(diastolic) >= 90;
-                  
-                  healthPlanRecommendations.push({
-                    domain: 'Cardiovascular Health',
-                    text: vitalSignsRecommendation,
-                    priority: isPriority ? 'high' : 'medium',
-                    source: {
-                      question: question.text,
-                      response: `BP: ${systolic}/${diastolic}, HR: ${heartRate}`
-                    }
-                  });
-                  processedRecommendations.add(vitalSignsRecommendation);
-                }
-              }
-            }
-            
-            // Handle PHQ-2 recommendations
-            if ((question.type === 'phq2' || question.text?.toLowerCase().includes('phq')) && 
-                responses[`${question.id}_interest`] !== undefined && 
-                responses[`${question.id}_depression`] !== undefined) {
-              
-              const interestScore = parseInt(responses[`${question.id}_interest`]);
-              const depressionScore = parseInt(responses[`${question.id}_depression`]);
-              const phq2Result = calculatePHQ2Score(interestScore, depressionScore);
-              const score = phq2Result.score;
-              const risk = phq2Result.risk;
-              
-              if (risk === 'High') {
-                const phq2Recommendation = 'Consider further assessment with PHQ-9 and referral to mental health services.';
-                
-                if (!processedRecommendations.has(phq2Recommendation)) {
-                  healthPlanRecommendations.push({
-                    domain: 'Mental Health',
-                    text: phq2Recommendation,
-                    priority: 'high',
-                    source: {
-                      question: question.text,
-                      response: `Score: ${score}/6 (Risk: ${risk})`
-                    }
-                  });
-                  processedRecommendations.add(phq2Recommendation);
-                }
-              }
-            }
-            
-            // Handle Cognitive Assessment recommendations
-            if ((question.type === 'cognitiveAssessment' || question.text?.toLowerCase().includes('cognitive')) && 
-                responses[`${question.id}_date`] &&
-                responses[`${question.id}_day`] &&
-                responses[`${question.id}_place`] &&
-                responses[`${question.id}_address`] &&
-                responses[`${question.id}_president`]) {
-                
-              const score = calculateCognitiveScore(
-                responses[`${question.id}_date`],
-                responses[`${question.id}_day`],
-                responses[`${question.id}_place`],
-                responses[`${question.id}_address`],
-                responses[`${question.id}_president`]
-              );
-              const risk = score < 20 ? 'High' : 'Low';
-              
-              if (risk === 'High') {
-                const cogRecommendation = 'Results indicate potential cognitive impairment. Consider referral for comprehensive neuropsychological testing.';
-                
-                if (!processedRecommendations.has(cogRecommendation)) {
-                  healthPlanRecommendations.push({
-                    domain: 'Cognitive Health',
-                    text: cogRecommendation,
-                    priority: 'high',
-                    source: {
-                      question: question.text,
-                      response: `Score: ${score}/25`
-                    }
-                  });
-                  processedRecommendations.add(cogRecommendation);
-                }
-              }
-            }
-            
-            // Handle CAGE recommendations
-            if ((question.type === 'cageScreening' || question.text?.toLowerCase().includes('cage')) && 
-                responses[`${question.id}_cutdown`] &&
-                responses[`${question.id}_annoyed`] &&
-                responses[`${question.id}_guilty`] &&
-                responses[`${question.id}_morning`]) {
-                
-              const cageAnswers = [
-                responses[`${question.id}_cutdown`] === 'yes',
-                responses[`${question.id}_annoyed`] === 'yes',
-                responses[`${question.id}_guilty`] === 'yes',
-                responses[`${question.id}_morning`] === 'yes'
-              ];
-              
-              const result = calculateCAGEScore(cageAnswers);
-              const score = result.score;
-              const risk = result.risk;
-              
-              if (risk === 'High') {
-                const cageRecommendation = 'Results suggest potential alcohol problem. Consider referral for alcohol abuse assessment and counseling.';
-                
-                if (!processedRecommendations.has(cageRecommendation)) {
-                  healthPlanRecommendations.push({
-                    domain: 'Substance Use',
-                    text: cageRecommendation,
-                    priority: 'high',
-                    source: {
-                      question: question.text,
-                      response: `Score: ${score}/4 (Risk: ${risk})`
-                    }
-                  });
-                  processedRecommendations.add(cageRecommendation);
-                }
-              }
-            }
-            
-            // Add any default recommendations (for numeric questions, etc.)
-            if (question.defaultRecommendation && responses[question.id]) {
-              const defaultRec = question.defaultRecommendation.replace(
-                '{value}', 
-                responses[question.id].toString()
-              );
-              
-              if (!processedRecommendations.has(defaultRec)) {
+            // Find selected options that have recommendations
+            question.options.forEach((option: any) => {
+              if (selectedValues.includes(getOptionValue(option)) && option.recommendation) {
                 healthPlanRecommendations.push({
                   domain: section.title,
-                  text: defaultRec,
-                  priority: 'medium',
+                  text: option.recommendation,
+                  priority: 'medium', // Default priority
                   source: {
                     question: question.text,
-                    response: responses[question.id].toString()
+                    response: getOptionLabel(option)
                   }
                 });
-                processedRecommendations.add(defaultRec);
+                processedRecommendations.add(option.recommendation);
+              }
+            });
+          } 
+          else if (question.type === 'boolean') {
+            // For boolean questions
+            const response = responses[question.id];
+            const selectedOption = question.options?.find((opt: any) => 
+              getOptionValue(opt) === response.toString()
+            );
+            
+            if (selectedOption?.recommendation) {
+              healthPlanRecommendations.push({
+                domain: section.title,
+                text: selectedOption.recommendation,
+                priority: 'medium',
+                source: {
+                  question: question.text,
+                  response: getOptionLabel(selectedOption)
+                }
+              });
+              processedRecommendations.add(selectedOption.recommendation);
+            }
+          }
+          else if (question.includeRecommendation && recommendations[question.id]) {
+            // For questions with custom recommendations entered by the provider
+            healthPlanRecommendations.push({
+              domain: section.title,
+              text: recommendations[question.id],
+              priority: 'medium',
+              source: {
+                question: question.text,
+                response: String(responses[question.id])
+              }
+            });
+            processedRecommendations.add(recommendations[question.id]);
+          }
+          
+          // Handle special question types (BMI, vital signs, etc.)
+          if (question.type === 'bmi' && responses[question.id]?.value) {
+            const bmiValue = responses[question.id].value;
+            const bmiRecommendation = getBMIRecommendation(bmiValue);
+            
+            if (bmiRecommendation && !processedRecommendations.has(bmiRecommendation)) {
+              healthPlanRecommendations.push({
+                domain: 'Physical Health',
+                text: bmiRecommendation,
+                priority: 'high',
+                source: {
+                  question: 'Body Mass Index (BMI)',
+                  response: `BMI: ${bmiValue}`
+                }
+              });
+              processedRecommendations.add(bmiRecommendation);
+            }
+          }
+          else if (question.type === 'vitalSigns') {
+            const vitalSigns = responses[question.id];
+            if (vitalSigns?.systolic && vitalSigns?.diastolic && vitalSigns?.heartRate) {
+              const vsRecommendation = getVitalSignsRecommendation(
+                vitalSigns.systolic, 
+                vitalSigns.diastolic, 
+                vitalSigns.heartRate
+              );
+              
+              if (vsRecommendation && !processedRecommendations.has(vsRecommendation)) {
+                healthPlanRecommendations.push({
+                  domain: 'Physical Health',
+                  text: vsRecommendation,
+                  priority: 'high',
+                  source: {
+                    question: 'Vital Signs',
+                    response: `BP: ${vitalSigns.systolic}/${vitalSigns.diastolic}, HR: ${vitalSigns.heartRate}`
+                  }
+                });
+                processedRecommendations.add(vsRecommendation);
               }
             }
-          });
-        });
-
-        console.log('Generated health plan recommendations:', healthPlanRecommendations);
-        
-        // Generate a health plan summary
-        const healthPlanSummary = generateHealthPlanSummary(healthPlanRecommendations);
-        
-        // Update the visit
-        await visitService.updateVisit(visitId, {
-          status: 'completed',
-          responses: responses,
-          healthPlan: {
-            recommendations: healthPlanRecommendations,
-            summary: healthPlanSummary
           }
-        } as IVisitUpdateRequest);
-        
-        setIsSaving(false);
-        router.push(`/dashboard/visits/${visitId}/report`);
-      } catch (error) {
-        console.error('Error completing visit:', error);
-        setIsSaving(false);
-        alert('Failed to complete visit. Please try again.');
-      }
+          else if (question.type === 'phq2' && responses[question.id]?.score) {
+            const phq2Score = responses[question.id].score;
+            if (phq2Score >= 3) {
+              const phq2Recommendation = 'Consider further evaluation with PHQ-9 due to positive PHQ-2 screening.';
+              if (!processedRecommendations.has(phq2Recommendation)) {
+                healthPlanRecommendations.push({
+                  domain: 'Mental Health',
+                  text: phq2Recommendation,
+                  priority: 'high',
+                  source: {
+                    question: 'Depression Screening (PHQ-2)',
+                    response: `Score: ${phq2Score}/6`
+                  }
+                });
+                processedRecommendations.add(phq2Recommendation);
+              }
+            }
+          }
+          else if (question.type === 'cageScreening' && responses[question.id]?.score) {
+            const cageScore = responses[question.id].score;
+            if (cageScore >= 2) {
+              const cageRecommendation = 'Consider comprehensive alcohol use assessment due to positive CAGE screening.';
+              if (!processedRecommendations.has(cageRecommendation)) {
+                healthPlanRecommendations.push({
+                  domain: 'Substance Use',
+                  text: cageRecommendation,
+                  priority: 'high',
+                  source: {
+                    question: 'Alcohol Use Screening (CAGE)',
+                    response: `Score: ${cageScore}/4`
+                  }
+                });
+                processedRecommendations.add(cageRecommendation);
+              }
+            }
+          }
+          else if (question.type === 'cognitiveAssessment' && responses[question.id]?.score) {
+            const cogScore = responses[question.id].score;
+            const maxScore = question.config?.subtype === 'mmse' ? 30 : 30; // Adjust for different assessments
+            
+            if (cogScore < (maxScore * 0.8)) {
+              const cogRecommendation = 'Follow up with comprehensive cognitive assessment due to screening results.';
+              if (!processedRecommendations.has(cogRecommendation)) {
+                healthPlanRecommendations.push({
+                  domain: 'Cognitive Health',
+                  text: cogRecommendation,
+                  priority: 'high',
+                  source: {
+                    question: 'Cognitive Assessment',
+                    response: `Score: ${cogScore}/${maxScore}`
+                  }
+                });
+                processedRecommendations.add(cogRecommendation);
+              }
+            }
+          }
+        });
+      });
+      
+      // Generate health plan summary
+      const healthPlanSummary = generateHealthPlanSummary(healthPlanRecommendations);
+      
+      // Prepare data for saving
+      const updateData: IVisitUpdateRequest = {
+        status: 'completed',
+        responses: responses,
+        healthPlan: {
+          recommendations: healthPlanRecommendations,
+          summary: healthPlanSummary
+        }
+      };
+      
+      // Save the completed visit
+      await visitService.updateVisit(visitId, updateData);
+      
+      // Redirect to report page
+      router.push(`/dashboard/visits/${visitId}/report`);
+    } catch (error) {
+      console.error('Error completing visit:', error);
+      setIsSaving(false);
+      alert('Failed to complete visit. Please try again.');
     }
   };
   

@@ -93,7 +93,7 @@ function UsersContent() {
         setError(null);
         
         // Get current user's role
-        const { role } = await userService.getUserRole();
+        const { role } = await userService.getUserRole(user.uid);
         setCurrentUserRole(role);
         
         // Check permission - only admin and provider can access

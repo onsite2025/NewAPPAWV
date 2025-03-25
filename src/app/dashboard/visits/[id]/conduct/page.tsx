@@ -228,7 +228,9 @@ export default function ConductVisitPage() {
                   type: question.type || 'text', // Ensure type is set
                   options: question.options?.map((option: any) => ({
                     ...option,
-                    id: option.id || option._id || uuidv4()
+                    id: option.id || option._id || uuidv4(),
+                    text: option.text || option.label || '', // Ensure text is set
+                    recommendation: option.recommendation || '' // Ensure recommendation is set
                   })) || []
                 }))
               }));
@@ -414,12 +416,12 @@ export default function ConductVisitPage() {
             {(question as SelectQuestion).options.map((option) => (
               <label key={option.id} className="flex items-center space-x-2">
                 <input
-                  type="radio"
+                  type={question.type === 'radio' ? 'radio' : 'checkbox'}
                   name={question.id}
                   value={option.id}
                   checked={currentValue === option.id}
                   onChange={(e) => handleInputChange(question.id, e.target.value)}
-                  className="form-radio"
+                  className={question.type === 'radio' ? 'form-radio' : 'form-checkbox'}
                 />
                 <span>{option.text}</span>
               </label>

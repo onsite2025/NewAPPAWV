@@ -250,10 +250,10 @@ const userService = {
   },
   
   // Get current user's role
-  getUserRole: async (): Promise<{ role: string }> => {
+  getUserRole: async (userId: string): Promise<{ role: string }> => {
     try {
       console.log('Fetching user role');
-      const response = await fetch(`${BASE_URL}/users/role`);
+      const response = await fetch(`${BASE_URL}/users/role?userId=${userId}`);
       
       if (!response.ok) {
         const error = await response.json();

@@ -33,7 +33,7 @@ export default function AnalyticsPage() {
         setError(null);
 
         // Get user role
-        const { role } = await userService.getUserRole();
+        const { role } = await userService.getUserRole(user.uid);
         setUserRole(role);
 
         // Check permission - only admin and provider can access

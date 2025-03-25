@@ -25,7 +25,7 @@ export default function ProfilePage() {
         setError(null);
         
         // Get user role
-        const { role } = await userService.getUserRole();
+        const { role } = await userService.getUserRole(user.uid);
         setUserRole(role);
         
         // Get user profile

@@ -11,6 +11,8 @@ export interface IQuestion {
   id: string;
   text: string;
   type: 'text' | 'multipleChoice' | 'numeric' | 'date' | 'boolean' | 'bmi' | 'vitalSigns' | 'phq2' | 'cognitiveAssessment' | 'cageScreening';
+  originalType?: string; // Add this to support storing the UI-specific type
+  renderType?: string; // Add this to support custom rendering in the conduct page
   required: boolean;
   options?: IOption[];
   includeRecommendation?: boolean;
@@ -32,6 +34,8 @@ export interface IQuestion {
       warningThreshold?: number;
     };
     subtype?: string; // For specific subtypes of questions
+    multiple?: boolean; // For multiple choice questions
+    multiline?: boolean; // For text questions
   };
 }
 
@@ -94,7 +98,9 @@ const ConfigSchema = new Schema({
     max: Number,
     warningThreshold: Number
   },
-  subtype: String
+  subtype: String,
+  multiple: Boolean, // For multiple choice questions
+  multiline: Boolean // For text questions
 }, { _id: false });
 
 // Define the schema for questions
@@ -109,6 +115,8 @@ const QuestionSchema = new Schema<IQuestion>({
     ],
     required: true 
   },
+  originalType: String, // Add this to support storing the UI-specific type
+  renderType: String, // Add this to support custom rendering in the conduct page
   required: { type: Boolean, default: false },
   options: [OptionSchema],
   includeRecommendation: { type: Boolean, default: false },

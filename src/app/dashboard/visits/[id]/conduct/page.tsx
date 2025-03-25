@@ -757,44 +757,70 @@ export default function ConductVisitPage() {
       [name]: newValue
     }));
 
+    console.log(`Input change for ${name}: ${JSON.stringify(newValue)}`);
+
     // Auto-set recommendations based on selection
     if (question.includeRecommendation) {
-      const questionType = isProcessedQuestion(question) ? question.type : mapQuestionType(question.type as TemplateQuestionType);
+      const questionType = isProcessedQuestion(question) 
+        ? question.type 
+        : isTemplateQuestion(question)
+          ? question.type
+          : mapQuestionType(question.type as TemplateQuestionType);
       
-      if (questionType === 'multipleChoice' && question.options) {
-        const selectedOption = question.options.find((opt: any) => {
-          return getOptionValue(opt) === newValue;
-        });
-        
-        if (selectedOption?.recommendation) {
-          setRecommendations(prev => ({
-            ...prev,
-            [name]: selectedOption.recommendation || ''
-          }));
-        }
-      } else if (questionType === 'multipleChoice' && question.config?.multiple && Array.isArray(newValue)) {
-        const selectedOptions = question.options?.filter((opt: any) => {
-          return newValue.includes(getOptionValue(opt));
-        }) || [];
-        
-        const recommendations = selectedOptions
-          .map((opt: any) => opt.recommendation)
-          .filter(Boolean);
+      console.log(`Processing recommendation for ${name} of type ${questionType}`);
+      
+      if (questionType === 'multipleChoice' || 
+          question.options && question.options.length > 0) {
+        if (question.config?.multiple && Array.isArray(newValue)) {
+          // For checkbox (multiple selection) questions
+          const selectedOptions = question.options?.filter((opt: any) => {
+            return newValue.includes(getOptionValue(opt));
+          }) || [];
           
-        if (recommendations.length > 0) {
-          setRecommendations(prev => ({
-            ...prev,
-            [name]: recommendations.join('\n')
-          }));
+          const recommendations = selectedOptions
+            .map((opt: any) => opt.recommendation)
+            .filter(Boolean);
+            
+          if (recommendations.length > 0) {
+            setRecommendations(prev => ({
+              ...prev,
+              [question.id]: recommendations.join('\n')
+            }));
+            console.log(`Set recommendation for ${question.id}: ${recommendations.join('\n')}`);
+          }
+        } else {
+          // For radio/select (single selection) questions
+          const selectedOption = question.options?.find((opt: any) => {
+            return getOptionValue(opt) === newValue;
+          });
+          
+          if (selectedOption?.recommendation) {
+            setRecommendations(prev => ({
+              ...prev,
+              [question.id]: selectedOption.recommendation
+            }));
+            console.log(`Set recommendation for ${question.id}: ${selectedOption.recommendation}`);
+          }
         }
-      } else if (questionType === 'numeric') {
-        const numValue = parseInt(newValue);
-        if (question.defaultRecommendation) {
+      } else if (questionType === 'numeric' || questionType === 'range') {
+        const numValue = parseFloat(newValue);
+        if (!isNaN(numValue) && question.defaultRecommendation) {
           const recommendation = question.defaultRecommendation.replace('{value}', numValue.toString());
           setRecommendations(prev => ({
             ...prev,
-            [name]: recommendation
+            [question.id]: recommendation
           }));
+          console.log(`Set recommendation for ${question.id}: ${recommendation}`);
+        }
+      } else if (questionType === 'text' || questionType === 'textarea') {
+        // For text questions with defaultRecommendation
+        if (question.defaultRecommendation) {
+          const recommendation = question.defaultRecommendation;
+          setRecommendations(prev => ({
+            ...prev,
+            [question.id]: recommendation
+          }));
+          console.log(`Set recommendation for ${question.id}: ${recommendation}`);
         }
       }
     }
@@ -821,6 +847,49 @@ export default function ConductVisitPage() {
             [questionId]: bmi.value,
             [`${questionId}_category`]: bmi.category
           }));
+          
+          // Store recommendation for BMI
+          const bmiRecommendation = getBMIRecommendation(bmi.value);
+          if (bmiRecommendation) {
+            setRecommendations(prev => ({
+              ...prev,
+              [questionId]: bmiRecommendation
+            }));
+            console.log(`Set BMI recommendation for ${questionId}: ${bmiRecommendation}`);
+          }
+        }
+      }
+    }
+    
+    // Handle vital signs and add recommendation if values indicate issues
+    if (question.type === 'vitalSigns' && 
+        (name.endsWith('_systolic') || name.endsWith('_diastolic') || name.endsWith('_heartRate'))) {
+      
+      const questionId = name.split('_')[0];
+      const systolicField = `${questionId}_systolic`;
+      const diastolicField = `${questionId}_diastolic`;
+      const heartRateField = `${questionId}_heartRate`;
+      
+      // Update with new value from the current field
+      const updatedResponses = {
+        ...responses,
+        [name]: newValue
+      };
+      
+      if (updatedResponses[systolicField] && updatedResponses[diastolicField] && updatedResponses[heartRateField]) {
+        const systolic = parseFloat(updatedResponses[systolicField]);
+        const diastolic = parseFloat(updatedResponses[diastolicField]);
+        const heartRate = parseFloat(updatedResponses[heartRateField]);
+        
+        if (!isNaN(systolic) && !isNaN(diastolic) && !isNaN(heartRate)) {
+          const recommendation = getVitalSignsRecommendation(systolic, diastolic, heartRate);
+          if (recommendation) {
+            setRecommendations(prev => ({
+              ...prev,
+              [questionId]: recommendation
+            }));
+            console.log(`Set vital signs recommendation for ${questionId}: ${recommendation}`);
+          }
         }
       }
     }
@@ -833,9 +902,15 @@ export default function ConductVisitPage() {
       const interestField = `${questionId}_interest`;
       const depressionField = `${questionId}_depression`;
       
-      if (responses[interestField] && responses[depressionField]) {
-        const interestScore = parseInt(responses[interestField]);
-        const depressionScore = parseInt(responses[depressionField]);
+      // Update with new value from the current field
+      const updatedResponses = {
+        ...responses,
+        [name]: newValue
+      };
+      
+      if (updatedResponses[interestField] && updatedResponses[depressionField]) {
+        const interestScore = parseInt(updatedResponses[interestField]);
+        const depressionScore = parseInt(updatedResponses[depressionField]);
         
         if (!isNaN(interestScore) && !isNaN(depressionScore)) {
           const result = calculatePHQ2Score(interestScore, depressionScore);
@@ -846,6 +921,16 @@ export default function ConductVisitPage() {
             [questionId]: result.score,
             [`${questionId}_risk`]: result.risk
           }));
+          
+          // Add recommendation for high risk score
+          if (result.risk === 'High') {
+            const phq2Recommendation = 'Consider further assessment with PHQ-9 and referral to mental health services.';
+            setRecommendations(prev => ({
+              ...prev,
+              [questionId]: phq2Recommendation
+            }));
+            console.log(`Set PHQ2 recommendation for ${questionId}: ${phq2Recommendation}`);
+          }
         }
       }
     }
@@ -861,14 +946,20 @@ export default function ConductVisitPage() {
       const guiltyField = `${questionId}_guilty`;
       const morningField = `${questionId}_morning`;
       
-      if (responses[cutdownField] && responses[annoyedField] && 
-          responses[guiltyField] && responses[morningField]) {
+      // Update with new value from the current field
+      const updatedResponses = {
+        ...responses,
+        [name]: newValue
+      };
+      
+      if (updatedResponses[cutdownField] && updatedResponses[annoyedField] && 
+          updatedResponses[guiltyField] && updatedResponses[morningField]) {
         
         const cageAnswers = [
-          responses[cutdownField] === 'yes',
-          responses[annoyedField] === 'yes',
-          responses[guiltyField] === 'yes',
-          responses[morningField] === 'yes'
+          updatedResponses[cutdownField] === 'yes',
+          updatedResponses[annoyedField] === 'yes',
+          updatedResponses[guiltyField] === 'yes',
+          updatedResponses[morningField] === 'yes'
         ];
         
         const result = calculateCAGEScore(cageAnswers);
@@ -879,6 +970,16 @@ export default function ConductVisitPage() {
           [questionId]: result.score,
           [`${questionId}_risk`]: result.risk
         }));
+        
+        // Add recommendation for high risk score
+        if (result.risk === 'High') {
+          const cageRecommendation = 'Results suggest potential alcohol problem. Consider referral for alcohol abuse assessment and counseling.';
+          setRecommendations(prev => ({
+            ...prev,
+            [questionId]: cageRecommendation
+          }));
+          console.log(`Set CAGE recommendation for ${questionId}: ${cageRecommendation}`);
+        }
       }
     }
     
@@ -895,16 +996,22 @@ export default function ConductVisitPage() {
       const addressField = `${questionId}_address`;
       const presidentField = `${questionId}_president`;
       
-      if (responses[dateField] && responses[dayField] && 
-          responses[placeField] && responses[addressField] && 
-          responses[presidentField]) {
+      // Update with new value from the current field
+      const updatedResponses = {
+        ...responses,
+        [name]: newValue
+      };
+      
+      if (updatedResponses[dateField] && updatedResponses[dayField] && 
+          updatedResponses[placeField] && updatedResponses[addressField] && 
+          updatedResponses[presidentField]) {
         
         const score = calculateCognitiveScore(
-          responses[dateField],
-          responses[dayField],
-          responses[placeField],
-          responses[addressField],
-          responses[presidentField]
+          updatedResponses[dateField],
+          updatedResponses[dayField],
+          updatedResponses[placeField],
+          updatedResponses[addressField],
+          updatedResponses[presidentField]
         );
         
         const risk = score < 20 ? 'High' : 'Low';
@@ -915,6 +1022,16 @@ export default function ConductVisitPage() {
           [questionId]: score,
           [`${questionId}_risk`]: risk
         }));
+        
+        // Add recommendation for high risk score
+        if (risk === 'High') {
+          const cogRecommendation = 'Results indicate potential cognitive impairment. Consider referral for comprehensive neuropsychological testing.';
+          setRecommendations(prev => ({
+            ...prev,
+            [questionId]: cogRecommendation
+          }));
+          console.log(`Set cognitive recommendation for ${questionId}: ${cogRecommendation}`);
+        }
       }
     }
   };
@@ -1108,6 +1225,42 @@ export default function ConductVisitPage() {
         const healthPlanRecommendations: HealthPlanRecommendation[] = [];
         const processedRecommendations = new Set<string>(); // To avoid duplicates
         
+        // First, add recommendations that were collected during input changes
+        console.log('Recommendations from answers:', recommendations);
+        Object.entries(recommendations).forEach(([questionId, recommendationText]) => {
+          if (recommendationText && !processedRecommendations.has(recommendationText)) {
+            // Find which section this question belongs to
+            let sectionTitle = 'General';
+            let questionText = 'Unknown';
+            let responseText = 'Unknown';
+            
+            for (const section of questionnaireSections) {
+              for (const question of section.questions) {
+                if (question.id === questionId) {
+                  sectionTitle = section.title;
+                  questionText = question.text;
+                  responseText = Array.isArray(responses[questionId]) 
+                    ? responses[questionId].join(', ') 
+                    : String(responses[questionId] || '');
+                  break;
+                }
+              }
+            }
+            
+            healthPlanRecommendations.push({
+              domain: sectionTitle,
+              text: recommendationText,
+              priority: 'medium',
+              source: {
+                question: questionText,
+                response: responseText
+              }
+            });
+            
+            processedRecommendations.add(recommendationText);
+          }
+        });
+        
         // Gather recommendations from all sections and questions
         questionnaireSections.forEach(section => {
           section.questions.forEach(question => {
@@ -1117,7 +1270,7 @@ export default function ConductVisitPage() {
               // For checkbox questions (multiple selections)
               if (question.config?.multiple && Array.isArray(responses[question.id])) {
                 const selectedOptions = question.options.filter(opt => 
-                  responses[question.id].includes(opt.value)
+                  responses[question.id].includes(getOptionValue(opt))
                 );
                 
                 selectedOptions.forEach(option => {
@@ -1128,7 +1281,7 @@ export default function ConductVisitPage() {
                       priority: 'medium',
                       source: {
                         question: question.text,
-                        response: option.label
+                        response: option.label || option.text || ''
                       }
                     });
                     processedRecommendations.add(option.recommendation);
@@ -1138,7 +1291,7 @@ export default function ConductVisitPage() {
               // For radio/select questions (single selection)
               else if (responses[question.id]) {
                 const selectedOption = question.options.find(opt => 
-                  opt.value === responses[question.id]
+                  getOptionValue(opt) === responses[question.id]
                 );
                 
                 if (selectedOption?.recommendation && !processedRecommendations.has(selectedOption.recommendation)) {
@@ -1148,7 +1301,7 @@ export default function ConductVisitPage() {
                     priority: 'medium',
                     source: {
                       question: question.text,
-                      response: selectedOption.label
+                      response: getOptionLabel(selectedOption)
                     }
                   });
                   processedRecommendations.add(selectedOption.recommendation);
@@ -1157,7 +1310,8 @@ export default function ConductVisitPage() {
             }
             
             // Handle BMI recommendations
-            if (question.type === 'bmi' && responses[`${question.id}_height`] && responses[`${question.id}_weight`]) {
+            if ((question.type === 'bmi' || question.text?.toLowerCase().includes('bmi')) && 
+                responses[`${question.id}_height`] && responses[`${question.id}_weight`]) {
               const height = parseFloat(responses[`${question.id}_height`]);
               const weight = parseFloat(responses[`${question.id}_weight`]);
               const bmiResult = calculateBMI(height, weight, question.config?.units);
@@ -1172,7 +1326,7 @@ export default function ConductVisitPage() {
                   priority: bmiValue >= 30 || bmiValue < 18.5 ? 'high' : 'medium',
                   source: {
                     question: question.text,
-                    response: `BMI: ${bmiValue} (${bmiCategory})`
+                    response: `BMI: ${bmiValue.toFixed(1)} (${bmiCategory})`
                   }
                 });
                 processedRecommendations.add(bmiRecommendation);
@@ -1180,7 +1334,11 @@ export default function ConductVisitPage() {
             }
             
             // Handle vital signs recommendations
-            if (question.type === 'vitalSigns') {
+            if ((question.type === 'vitalSigns' || question.text?.toLowerCase().includes('vital')) && 
+                responses[`${question.id}_systolic`] && 
+                responses[`${question.id}_diastolic`] && 
+                responses[`${question.id}_heartRate`]) {
+              
               const systolic = responses[`${question.id}_systolic`];
               const diastolic = responses[`${question.id}_diastolic`];
               const heartRate = responses[`${question.id}_heartRate`];
@@ -1210,7 +1368,7 @@ export default function ConductVisitPage() {
             }
             
             // Handle PHQ-2 recommendations
-            if (question.type === 'phq2' && 
+            if ((question.type === 'phq2' || question.text?.toLowerCase().includes('phq')) && 
                 responses[`${question.id}_interest`] !== undefined && 
                 responses[`${question.id}_depression`] !== undefined) {
               
@@ -1239,7 +1397,7 @@ export default function ConductVisitPage() {
             }
             
             // Handle Cognitive Assessment recommendations
-            if (question.type === 'cognitiveAssessment' && 
+            if ((question.type === 'cognitiveAssessment' || question.text?.toLowerCase().includes('cognitive')) && 
                 responses[`${question.id}_date`] &&
                 responses[`${question.id}_day`] &&
                 responses[`${question.id}_place`] &&
@@ -1274,7 +1432,7 @@ export default function ConductVisitPage() {
             }
             
             // Handle CAGE recommendations
-            if (question.type === 'cageScreening' && 
+            if ((question.type === 'cageScreening' || question.text?.toLowerCase().includes('cage')) && 
                 responses[`${question.id}_cutdown`] &&
                 responses[`${question.id}_annoyed`] &&
                 responses[`${question.id}_guilty`] &&
@@ -1287,9 +1445,9 @@ export default function ConductVisitPage() {
                 responses[`${question.id}_morning`] === 'yes'
               ];
               
-              const cageResult = calculateCAGEScore(cageAnswers);
-              const score = cageResult.score;
-              const risk = cageResult.risk;
+              const result = calculateCAGEScore(cageAnswers);
+              const score = result.score;
+              const risk = result.risk;
               
               if (risk === 'High') {
                 const cageRecommendation = 'Results suggest potential alcohol problem. Consider referral for alcohol abuse assessment and counseling.';
@@ -1331,6 +1489,8 @@ export default function ConductVisitPage() {
             }
           });
         });
+
+        console.log('Generated health plan recommendations:', healthPlanRecommendations);
         
         // Generate a health plan summary
         const healthPlanSummary = generateHealthPlanSummary(healthPlanRecommendations);
@@ -2735,14 +2895,73 @@ export default function ConductVisitPage() {
                 {Object.entries(recommendations)
                   .filter(([_, value]) => value.trim() !== '')
                   .map(([questionId, recommendation]) => {
-                    const questionText = findQuestionText(questionId);
-                    const response = responses[questionId];
+                    // Find the question and its containing section
+                    let questionText = 'Unknown Question';
+                    let sectionTitle = 'Unknown Section';
+                    let responseText = 'Unknown Response';
+                    
+                    for (const section of questionnaireSections) {
+                      for (const question of section.questions) {
+                        if (question.id === questionId) {
+                          questionText = question.text;
+                          sectionTitle = section.title;
+                          
+                          // Format response based on question type
+                          const response = responses[questionId];
+                          if (Array.isArray(response)) {
+                            // For multiple selection questions
+                            responseText = response.join(', ');
+                          } else if (question.type === 'bmi' || questionText.toLowerCase().includes('bmi')) {
+                            // For BMI questions
+                            const bmiValue = responses[questionId];
+                            const bmiCategory = responses[`${questionId}_category`];
+                            responseText = `BMI: ${parseFloat(bmiValue).toFixed(1)} (${bmiCategory})`;
+                          } else if (question.type === 'vitalSigns' || questionText.toLowerCase().includes('vital')) {
+                            // For vital signs questions
+                            const systolic = responses[`${questionId}_systolic`];
+                            const diastolic = responses[`${questionId}_diastolic`];
+                            const heartRate = responses[`${questionId}_heartRate`];
+                            responseText = `BP: ${systolic}/${diastolic}, HR: ${heartRate}`;
+                          } else if (question.type === 'phq2' || questionText.toLowerCase().includes('phq')) {
+                            // For PHQ-2 questions
+                            const score = responses[questionId];
+                            const risk = responses[`${questionId}_risk`];
+                            responseText = `Score: ${score}/6 (Risk: ${risk})`;
+                          } else if (question.type === 'cognitiveAssessment' || questionText.toLowerCase().includes('cognitive')) {
+                            // For cognitive assessment questions
+                            const score = responses[questionId];
+                            responseText = `Score: ${score}/25`;
+                          } else if (question.type === 'cageScreening' || questionText.toLowerCase().includes('cage')) {
+                            // For CAGE questions
+                            const score = responses[questionId];
+                            const risk = responses[`${questionId}_risk`];
+                            responseText = `Score: ${score}/4 (Risk: ${risk})`;
+                          } else if (question.options && question.options.length > 0) {
+                            // For single selection questions
+                            const selectedOption = question.options.find(opt => 
+                              getOptionValue(opt) === response
+                            );
+                            responseText = selectedOption ? getOptionLabel(selectedOption) : String(response || '');
+                          } else {
+                            // Default for other question types
+                            responseText = String(response || '');
+                          }
+                          
+                          break;
+                        }
+                      }
+                    }
                     
                     return (
                       <div key={questionId} className="p-3 bg-gray-50 rounded-md">
-                        <div className="font-medium">{questionText}</div>
+                        <div className="flex justify-between items-start">
+                          <div className="font-medium">{questionText}</div>
+                          <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                            {sectionTitle}
+                          </div>
+                        </div>
                         <div className="text-sm text-gray-600 mb-2">
-                          Patient response: {Array.isArray(response) ? response.join(', ') : response}
+                          <strong>Response:</strong> {responseText}
                         </div>
                         <div className="text-sm bg-blue-50 p-2 rounded border border-blue-100">
                           <span className="font-medium text-blue-800">Recommendation:</span> {recommendation}

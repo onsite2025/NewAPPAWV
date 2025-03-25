@@ -223,17 +223,23 @@ export default function ConductVisitPage() {
               const processedSections = templateData.sections.map((section: any) => ({
                 ...section,
                 questions: section.questions.map((question: any) => {
-                  // Preserve the original question type from the template
+                  // Map template question types to conduct visit question types
                   let questionType: Question['type'];
                   switch (question.type) {
                     case 'multipleChoice':
-                      questionType = 'select';
-                      break;
-                    case 'checkbox':
-                      questionType = 'checkbox';
-                      break;
-                    case 'radio':
-                      questionType = 'radio';
+                      // If it's a yes/no question, use radio
+                      if (question.options?.length === 2 && 
+                          question.options.every((opt: any) => ['yes', 'no'].includes(opt.value.toLowerCase()))) {
+                        questionType = 'radio';
+                      }
+                      // If it's a checkbox question (multiple selections allowed)
+                      else if (question.options?.some((opt: any) => opt.selected)) {
+                        questionType = 'checkbox';
+                      }
+                      // Otherwise use select
+                      else {
+                        questionType = 'select';
+                      }
                       break;
                     case 'numeric':
                       questionType = 'range';
@@ -245,6 +251,7 @@ export default function ConductVisitPage() {
                       questionType = 'text';
                       break;
                     case 'text':
+                      // Check if it should be a textarea based on content
                       questionType = question.text?.toLowerCase().includes('describe') || 
                                    question.text?.toLowerCase().includes('explain') 
                                    ? 'textarea' 

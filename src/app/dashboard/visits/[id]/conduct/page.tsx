@@ -203,6 +203,7 @@ interface IVisitUpdateRequest {
     recommendations: HealthPlanRecommendation[];
     summary: string;
   };
+  completedSections?: number[];
 }
 
 // Template question types
@@ -1027,15 +1028,34 @@ export default function ConductVisitPage() {
   const handleSaveProgress = async () => {
     setIsSaving(true);
     
-    // In a real app, this would be an API call to save progress
-    setTimeout(() => {
-      setIsSaving(false);
-      // Update completed sections if current section is valid
+    try {
+      // Validate current section
       const isValid = validateSection(activeSection);
-      if (isValid && !completedSections.includes(activeSection)) {
-        setCompletedSections(prev => [...prev, activeSection]);
+      
+      if (isValid) {
+        // Update completed sections if current section is valid
+        if (!completedSections.includes(activeSection)) {
+          setCompletedSections(prev => [...prev, activeSection]);
+        }
+        
+        // Save progress to the backend
+        await visitService.updateVisit(visitId, {
+          status: 'in-progress',
+          responses: responses,
+          completedSections: completedSections
+        } as IVisitUpdateRequest);
+        
+        // Show success message
+        alert('Progress saved successfully');
+      } else {
+        alert('Please correct the errors before saving');
       }
-    }, 1000);
+    } catch (error) {
+      console.error('Error saving progress:', error);
+      alert('Failed to save progress. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   const handleNextSection = () => {
@@ -1387,7 +1407,6 @@ export default function ConductVisitPage() {
     // Map template types to appropriate input types
     switch (questionType) {
       case 'text':
-      case 'textarea':
         return (
           <input
             type="text"
@@ -1395,29 +1414,71 @@ export default function ConductVisitPage() {
             value={responses[question.id] || ''}
             onChange={(e) => handleInputChange(question, e)}
             required={question.required}
-            className={`w-full px-3 py-2 border rounded-md ${questionType === 'textarea' ? 'hidden' : ''}`}
+            className="w-full px-3 py-2 border rounded-md"
+            placeholder="Enter your answer"
+          />
+        );
+      case 'textarea':
+        return (
+          <textarea
+            name={question.id}
+            value={responses[question.id] || ''}
+            onChange={(e) => handleInputChange(question, e)}
+            required={question.required}
+            className="w-full px-3 py-2 border rounded-md"
+            rows={4}
             placeholder="Enter your answer"
           />
         );
       case 'select':
+        return (
+          <select
+            name={question.id}
+            value={responses[question.id] || ''}
+            onChange={(e) => handleInputChange(question, e)}
+            required={question.required}
+            className="w-full px-3 py-2 border rounded-md"
+          >
+            <option value="">Select an option</option>
+            {question.options?.map((option: any) => (
+              <option key={getOptionValue(option)} value={getOptionValue(option)}>
+                {getOptionLabel(option)}
+              </option>
+            ))}
+          </select>
+        );
       case 'radio':
+        return (
+          <div className="space-y-2">
+            {question.options?.map((option: any) => (
+              <label key={getOptionValue(option)} className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  name={question.id}
+                  value={getOptionValue(option)}
+                  checked={responses[question.id] === getOptionValue(option)}
+                  onChange={(e) => handleInputChange(question, e)}
+                  required={question.required}
+                  className="form-radio"
+                />
+                <span>{getOptionLabel(option)}</span>
+              </label>
+            ))}
+          </div>
+        );
       case 'checkbox':
         return (
           <div className="space-y-2">
             {question.options?.map((option: any) => (
               <label key={getOptionValue(option)} className="flex items-center space-x-2">
                 <input
-                  type={questionType === 'checkbox' ? 'checkbox' : 'radio'}
+                  type="checkbox"
                   name={question.id}
                   value={getOptionValue(option)}
-                  checked={
-                    questionType === 'checkbox'
-                      ? (responses[question.id] || []).includes(getOptionValue(option))
-                      : responses[question.id] === getOptionValue(option)
-                  }
+                  checked={(responses[question.id] || []).includes(getOptionValue(option))}
                   onChange={(e) => handleInputChange(question, e)}
                   required={question.required}
-                  className={questionType === 'checkbox' ? 'form-checkbox' : 'form-radio'}
+                  className="form-checkbox"
                 />
                 <span>{getOptionLabel(option)}</span>
               </label>

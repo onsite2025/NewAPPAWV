@@ -7,8 +7,7 @@ const nextConfig = {
   experimental: {
     serverActions: {
       allowedOrigins: ['localhost:3000', 'finalawv.netlify.app']
-    },
-    serverExternalPackages: ['mongoose']
+    }
   },
   
   // Disable image optimization for improved build compatibility

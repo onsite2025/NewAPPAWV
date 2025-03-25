@@ -1034,15 +1034,17 @@ export default function ConductVisitPage() {
       
       if (isValid) {
         // Update completed sections if current section is valid
-        if (!completedSections.includes(activeSection)) {
-          setCompletedSections(prev => [...prev, activeSection]);
+        const updatedCompletedSections = [...completedSections];
+        if (!updatedCompletedSections.includes(activeSection)) {
+          updatedCompletedSections.push(activeSection);
+          setCompletedSections(updatedCompletedSections);
         }
         
         // Save progress to the backend
         await visitService.updateVisit(visitId, {
           status: 'in-progress',
           responses: responses,
-          completedSections: completedSections
+          completedSections: updatedCompletedSections
         } as IVisitUpdateRequest);
         
         // Show success message
@@ -1397,15 +1399,26 @@ export default function ConductVisitPage() {
   
   // Render form inputs based on question type
   const renderQuestion = (question: ProcessedQuestion | any) => {
-    // Get the question type, handling both processed and template questions
-    const questionType = isProcessedQuestion(question) 
-      ? question.type 
-      : isTemplateQuestion(question)
-        ? question.type
-        : 'text'; // Default to text if type cannot be determined
-
+    // Determine the actual input type to render based on question type and config
+    let inputType = question.type;
+    
+    // Handle multipleChoice questions by looking at config
+    if (inputType === 'multipleChoice') {
+      if (question.config?.multiple === true) {
+        inputType = 'checkbox';
+      } else {
+        // Check if the question has options - if so, use radio as default
+        inputType = question.options && question.options.length > 0 ? 'radio' : 'select';
+      }
+    }
+    
+    // Handle text questions by looking at config
+    if (inputType === 'text' && question.config?.multiline === true) {
+      inputType = 'textarea';
+    }
+    
     // Map template types to appropriate input types
-    switch (questionType) {
+    switch (inputType) {
       case 'text':
         return (
           <input

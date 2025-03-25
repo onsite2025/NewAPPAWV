@@ -924,6 +924,43 @@ export default function ConductVisitPage() {
           // Additional validations for complex question types
           if (question.type === 'bmi' && question.required) {
             if (!responses[`${question.id}_height`] || !responses[`${question.id}_weight`]) {
+              errors.push(`Please provide both height and weight for "${question.text}".`);
+            }
+          } else if (question.type === 'vitalSigns' && question.required) {
+            if (!responses[`${question.id}_systolic`] || 
+                !responses[`${question.id}_diastolic`] || 
+                !responses[`${question.id}_heartRate`]) {
+              errors.push(`Please provide blood pressure and heart rate for "${question.text}".`);
+            }
+          } else if (question.type === 'phq2' && question.required) {
+            if (!responses[`${question.id}_interest`] || 
+                !responses[`${question.id}_depression`]) {
+              errors.push(`Please answer both questions for "${question.text}".`);
+            }
+          } else if (question.type === 'cognitiveAssessment' && question.required) {
+            if (!responses[`${question.id}_date`] || 
+                !responses[`${question.id}_day`] || 
+                !responses[`${question.id}_place`] || 
+                !responses[`${question.id}_address`] || 
+                !responses[`${question.id}_president`]) {
+              errors.push(`Please complete all fields for "${question.text}".`);
+            }
+          } else if (question.type === 'cageScreening' && question.required) {
+            if (!responses[`${question.id}_cutdown`] || 
+                !responses[`${question.id}_annoyed`] || 
+                !responses[`${question.id}_guilty`] || 
+                !responses[`${question.id}_morning`]) {
+              errors.push(`Please answer all questions for "${question.text}".`);
+            }
+          }
+          break;
+        
+        default:
+          // Default validation for any other question types
+          if (question.required) {
+            errors.push(`Question "${question.text}" is required.`);
+          }
+          break;
       }
     });
     

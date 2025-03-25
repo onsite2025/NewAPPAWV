@@ -13,6 +13,8 @@ export interface IQuestion {
   type: 'text' | 'multipleChoice' | 'numeric' | 'date' | 'boolean' | 'bmi' | 'vitalSigns' | 'phq2' | 'cognitiveAssessment' | 'cageScreening';
   required: boolean;
   options?: IOption[];
+  includeRecommendation?: boolean;
+  defaultRecommendation?: string;
   conditionalLogic?: {
     dependsOn: string;
     showWhen: {
@@ -109,6 +111,8 @@ const QuestionSchema = new Schema<IQuestion>({
   },
   required: { type: Boolean, default: false },
   options: [OptionSchema],
+  includeRecommendation: { type: Boolean, default: false },
+  defaultRecommendation: String,
   conditionalLogic: ConditionalLogicSchema,
   config: ConfigSchema
 }, { _id: false });

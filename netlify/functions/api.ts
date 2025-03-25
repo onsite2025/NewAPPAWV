@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 // Import your API route handlers
 import { GET as getPatients, POST as postPatient, PUT as putPatient, DELETE as deletePatient } from '../../src/app/api/patients/route';
 import { GET as getVisits, POST as postVisit } from '../../src/app/api/visits/route';
+import { GET as getVisitById, PUT as putVisit, DELETE as deleteVisit } from '../../src/app/api/visits/[id]/route';
 import { GET as getUsers, POST as postUser } from '../../src/app/api/users/route';
 import { GET as getPractice } from '../../src/app/api/practice/route';
 import { GET as getTemplates, POST as postTemplate, PUT as putTemplate, DELETE as deleteTemplate } from '../../src/app/api/templates/route';
@@ -117,6 +118,59 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
       path,
       query: event.queryStringParameters
     });
+
+    // Handle dynamic routes for visits
+    if (path.startsWith('/visits/')) {
+      const visitId = path.split('/')[2];
+      const handlers: Record<string, Function> = {
+        GET: getVisitById,
+        PUT: putVisit,
+        DELETE: deleteVisit
+      };
+
+      const handler = handlers[event.httpMethod];
+      if (!handler) {
+        return {
+          statusCode: 405,
+          body: JSON.stringify({ 
+            error: 'Method not allowed',
+            method: event.httpMethod,
+            path,
+            timestamp: new Date().toISOString()
+          }),
+          headers: createHeaders()
+        };
+      }
+
+      try {
+        // Connect to MongoDB before handling the request
+        await connectToMongoDB();
+        
+        // Handle the request with the visit ID
+        const response = await handler(request, { params: { id: visitId } });
+        
+        // Convert Response to Netlify function response
+        const responseData = await response.json();
+        
+        return {
+          statusCode: response.status,
+          body: JSON.stringify(responseData),
+          headers: createHeaders()
+        };
+      } catch (error) {
+        console.error(`Error handling visit ${visitId}:`, error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ 
+            error: 'Internal server error',
+            details: error instanceof Error ? error.message : 'Unknown error',
+            path,
+            timestamp: new Date().toISOString()
+          }),
+          headers: createHeaders()
+        };
+      }
+    }
 
     // Map routes to handlers
     const routes: Record<string, Record<string, Function>> = {

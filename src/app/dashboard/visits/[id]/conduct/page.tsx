@@ -1377,10 +1377,17 @@ export default function ConductVisitPage() {
   
   // Render form inputs based on question type
   const renderQuestion = (question: ProcessedQuestion | any) => {
-    const questionType = isProcessedQuestion(question) ? question.type : mapQuestionType(question.type as TemplateQuestionType);
-    
+    // Get the question type, handling both processed and template questions
+    const questionType = isProcessedQuestion(question) 
+      ? question.type 
+      : isTemplateQuestion(question)
+        ? question.type
+        : 'text'; // Default to text if type cannot be determined
+
+    // Map template types to appropriate input types
     switch (questionType) {
       case 'text':
+      case 'textarea':
         return (
           <input
             type="text"
@@ -1388,27 +1395,29 @@ export default function ConductVisitPage() {
             value={responses[question.id] || ''}
             onChange={(e) => handleInputChange(question, e)}
             required={question.required}
-            className={`w-full px-3 py-2 border rounded-md ${question.config?.multiline ? 'hidden' : ''}`}
+            className={`w-full px-3 py-2 border rounded-md ${questionType === 'textarea' ? 'hidden' : ''}`}
             placeholder="Enter your answer"
           />
         );
-      case 'multipleChoice':
+      case 'select':
+      case 'radio':
+      case 'checkbox':
         return (
           <div className="space-y-2">
             {question.options?.map((option: any) => (
               <label key={getOptionValue(option)} className="flex items-center space-x-2">
                 <input
-                  type={question.config?.multiple ? 'checkbox' : 'radio'}
+                  type={questionType === 'checkbox' ? 'checkbox' : 'radio'}
                   name={question.id}
                   value={getOptionValue(option)}
                   checked={
-                    question.config?.multiple
+                    questionType === 'checkbox'
                       ? (responses[question.id] || []).includes(getOptionValue(option))
                       : responses[question.id] === getOptionValue(option)
                   }
                   onChange={(e) => handleInputChange(question, e)}
                   required={question.required}
-                  className="form-radio"
+                  className={questionType === 'checkbox' ? 'form-checkbox' : 'form-radio'}
                 />
                 <span>{getOptionLabel(option)}</span>
               </label>
@@ -1416,6 +1425,7 @@ export default function ConductVisitPage() {
           </div>
         );
       case 'numeric':
+      case 'range':
         return (
           <input
             type="number"
@@ -1953,7 +1963,7 @@ export default function ConductVisitPage() {
           </div>
         );
       default:
-        return null; // Return null for unknown question types instead of showing a text input
+        return null; // Return null for unknown question types
     }
   };
   

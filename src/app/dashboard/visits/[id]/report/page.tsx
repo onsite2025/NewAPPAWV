@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { FiPrinter, FiDownload, FiMail, FiEdit, FiArrowLeft, FiUser } from 'react-icons/fi';
+import { FiPrinter, FiDownload, FiMail, FiEdit, FiArrowLeft, FiUser, FiFileText, FiClipboard, FiActivity, FiInfo, FiAlertCircle, FiAlertTriangle } from 'react-icons/fi';
 import visitService from '@/services/visitService';
 import templateService from '@/services/templateService';
 import patientService from '@/services/patientService';
@@ -207,8 +207,10 @@ export default function VisitReportPage() {
   const renderHealthPlan = () => {
     if (!visit.healthPlan || !visit.healthPlan.recommendations || visit.healthPlan.recommendations.length === 0) {
       return (
-        <div className="mb-8">
-          <h3 className="text-xl font-bold mb-3">Health Plan</h3>
+        <div className="mb-8 p-5 bg-gray-50 rounded-lg border border-gray-200">
+          <h2 className="text-xl font-bold mb-2 text-primary-700 flex items-center">
+            <FiActivity className="mr-2" /> Health Plan
+          </h2>
           <p className="text-gray-600 italic">No specific health recommendations at this time.</p>
         </div>
       );
@@ -216,47 +218,71 @@ export default function VisitReportPage() {
 
     return (
       <div className="mb-8">
-        <h3 className="text-xl font-bold mb-3">Personalized Health Plan</h3>
+        <h2 className="text-xl font-bold mb-4 pb-2 border-b text-primary-700 flex items-center">
+          <FiActivity className="mr-2" /> Personalized Health Plan
+        </h2>
         
         {visit.healthPlan.summary && (
-          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
-            <h4 className="font-semibold text-blue-700 mb-2">Summary</h4>
+          <div className="mb-6 p-5 bg-blue-50 rounded-lg border border-blue-200">
+            <h3 className="font-semibold text-blue-700 mb-2 flex items-center">
+              <FiInfo className="mr-1" /> Summary
+            </h3>
             <p className="text-blue-900">{visit.healthPlan.summary}</p>
           </div>
         )}
         
-        <div className="mt-4">
-          <h4 className="font-semibold mb-2">Recommendations</h4>
-          
-          <div className="space-y-3">
-            {visit.healthPlan.recommendations.map((rec: any, index: number) => (
-              <div key={index} className={`p-3 border-l-4 bg-white rounded shadow-sm
-                ${rec.priority === 'high' 
-                  ? 'border-red-500' 
-                  : rec.priority === 'medium' 
-                    ? 'border-yellow-500' 
-                    : 'border-green-500'}`}>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="font-medium">{rec.domain}</span>
-                  <span className={`text-xs font-semibold rounded-full px-2 py-1
-                    ${rec.priority === 'high' 
-                      ? 'bg-red-100 text-red-800' 
-                      : rec.priority === 'medium' 
-                        ? 'bg-yellow-100 text-yellow-800' 
-                        : 'bg-green-100 text-green-800'}`}>
-                    {rec.priority.toUpperCase()}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {visit.healthPlan.recommendations.map((rec: any, index: number) => {
+            const priorityColors = {
+              high: {
+                border: 'border-red-500',
+                bg: 'bg-red-50',
+                badge: 'bg-red-100 text-red-800',
+                icon: <FiAlertCircle className="w-5 h-5 text-red-600 mr-2" />
+              },
+              medium: {
+                border: 'border-yellow-500',
+                bg: 'bg-yellow-50',
+                badge: 'bg-yellow-100 text-yellow-800',
+                icon: <FiAlertTriangle className="w-5 h-5 text-yellow-600 mr-2" />
+              },
+              low: {
+                border: 'border-green-500',
+                bg: 'bg-green-50',
+                badge: 'bg-green-100 text-green-800',
+                icon: <FiInfo className="w-5 h-5 text-green-600 mr-2" />
+              }
+            };
+            
+            const priority = rec.priority?.toLowerCase() || 'medium';
+            const colors = priorityColors[priority as keyof typeof priorityColors];
+            
+            return (
+              <div 
+                key={index} 
+                className={`p-4 rounded-lg shadow-sm ${colors.bg} border-l-4 ${colors.border}`}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="font-medium text-gray-800 flex items-center">
+                    {colors.icon}
+                    {rec.domain}
+                  </h4>
+                  <span className={`text-xs font-bold rounded-full px-3 py-1 uppercase ${colors.badge}`}>
+                    {rec.priority}
                   </span>
                 </div>
-                <p>{rec.text}</p>
+                <p className="text-gray-700 mb-2">{rec.text}</p>
                 {rec.source && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    Based on: {rec.source.question}
-                    {rec.source.response && ` (${rec.source.response})`}
-                  </p>
+                  <div className="text-sm text-gray-500 mt-2 border-t pt-2 border-gray-200">
+                    <div>Based on: <span className="font-medium">{rec.source.question}</span></div>
+                    {rec.source.response && (
+                      <div className="text-xs italic mt-1">Response: {rec.source.response}</div>
+                    )}
+                  </div>
                 )}
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -541,131 +567,173 @@ export default function VisitReportPage() {
       </div>
       
       <div className="report-content" ref={reportRef}>
-        <div className="mb-6 p-4 print:p-0 bg-white rounded-lg shadow-sm print:shadow-none">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold mb-2">Health Assessment Report</h1>
-            <p className="text-gray-600">Visit Date: {formatDate(visit.scheduledDate)}</p>
-          </div>
-          
-          <div className="mb-8">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center mb-4">
-              <FiUser className="text-gray-400 mr-2 h-5 w-5 mt-1 sm:mt-0" />
-              <div>
-                <div className="text-sm text-gray-600">Patient</div>
-                <div className="font-medium">
-                  {patientName}
-                  {patientAge !== 'N/A' && (
-                    <span className="ml-2 text-gray-600">({patientAge} years)</span>
-                  )}
+        <div className="p-6 print:p-0 bg-white rounded-lg shadow-md print:shadow-none">
+          {/* Header */}
+          <div className="mb-8 border-b pb-6 border-gray-200">
+            <div className="text-center mb-4">
+              <h1 className="text-3xl font-bold mb-2 text-primary-600">Health Assessment Report</h1>
+              <p className="text-gray-600">Visit Date: {formatDate(visit.scheduledDate)}</p>
+            </div>
+            
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center mt-6">
+              <div className="mb-4 md:mb-0">
+                <div className="flex items-center">
+                  <FiUser className="text-primary-500 mr-3 h-6 w-6" />
+                  <div>
+                    <div className="text-sm text-gray-600 uppercase tracking-wide">Patient</div>
+                    <div className="font-medium text-lg">
+                      {patientName}
+                      {patientAge !== 'N/A' && (
+                        <span className="ml-2 text-gray-600">({patientAge} years)</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex items-center">
+                {visit.status && (
+                  <div className="mr-6">
+                    <div className="text-sm text-gray-600 uppercase tracking-wide">Status</div>
+                    <div className={`font-medium capitalize ${
+                      visit.status === 'completed' ? 'text-green-600' : 
+                      visit.status === 'scheduled' ? 'text-blue-600' : 
+                      visit.status === 'cancelled' ? 'text-red-600' : 'text-gray-600'
+                    }`}>
+                      {visit.status}
+                    </div>
+                  </div>
+                )}
+                
+                <div>
+                  <div className="text-sm text-gray-600 uppercase tracking-wide">Provider</div>
+                  <div className="font-medium">
+                    {visit.provider?.firstName && visit.provider?.lastName
+                      ? `${visit.provider.firstName} ${visit.provider.lastName}`
+                      : 'Not assigned'}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
           
+          {/* Assessment Template Information */}
           {template && (
-            <div className="mb-8">
-              <h3 className="text-xl font-bold mb-3">Assessment: {template.name}</h3>
+            <div className="mb-8 p-5 bg-gray-50 rounded-lg border border-gray-200">
+              <h2 className="text-xl font-bold mb-2 text-primary-700 flex items-center">
+                <FiFileText className="mr-2" /> Assessment: {template.name}
+              </h2>
               {template.description && (
-                <p className="text-gray-600 mb-4">{template.description}</p>
+                <p className="text-gray-600 mt-1 italic">{template.description}</p>
               )}
             </div>
           )}
           
-          {/* Render responses by section */}
+          {/* Health Plan - Placed prominently near the top */}
+          {renderHealthPlan()}
+          
+          {/* Assessment Findings */}
           {template && visit.responses && Object.keys(visit.responses).length > 0 && (
             <div className="mb-8">
-              <h3 className="text-xl font-bold mb-3">Assessment Findings</h3>
+              <h2 className="text-xl font-bold mb-4 pb-2 border-b text-primary-700 flex items-center">
+                <FiClipboard className="mr-2" /> Assessment Findings
+              </h2>
               
-              {template.sections.map((section: any) => {
-                // Check if there are any responses for this section
-                const sectionQuestionIds = section.questions.map((q: any) => q.id);
-                const sectionHasResponses = sectionQuestionIds.some((id: string) => visit.responses[id] !== undefined);
-                
-                if (!sectionHasResponses) {
-                  return null;
-                }
-                
-                return (
-                  <div key={section.id} className="mb-6">
-                    <h4 className="text-lg font-semibold mb-2">{section.title}</h4>
-                    {section.description && (
-                      <p className="text-gray-600 mb-3">{section.description}</p>
-                    )}
-                    
-                    <div className="space-y-3">
-                      {section.questions.map((question: any) => {
-                        if (visit.responses[question.id] === undefined) {
-                          return null;
-                        }
-                        
-                        let responseDisplay;
-                        const response = visit.responses[question.id];
-                        
-                        if (question.type === 'multipleChoice' && question.options) {
-                          if (Array.isArray(response)) {
-                            // Multiple selection
-                            const selectedOptions = question.options
-                              .filter((opt: any) => response.includes(opt.value))
-                              .map((opt: any) => opt.label);
-                            responseDisplay = selectedOptions.join(', ');
+              <div className="space-y-6">
+                {template.sections.map((section: any) => {
+                  // Check if there are any responses for this section
+                  const sectionQuestionIds = section.questions.map((q: any) => q.id);
+                  const sectionHasResponses = sectionQuestionIds.some((id: string) => visit.responses[id] !== undefined);
+                  
+                  if (!sectionHasResponses) {
+                    return null;
+                  }
+                  
+                  return (
+                    <div key={section.id} className="bg-white p-4 rounded-lg border border-gray-200">
+                      <h3 className="text-lg font-semibold mb-3 text-primary-600 flex items-center">
+                        <span className="w-2 h-6 bg-primary-500 rounded-full mr-2"></span>
+                        {section.title}
+                      </h3>
+                      {section.description && (
+                        <p className="text-gray-600 text-sm mb-4">{section.description}</p>
+                      )}
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {section.questions.map((question: any) => {
+                          if (visit.responses[question.id] === undefined) {
+                            return null;
+                          }
+                          
+                          let responseDisplay;
+                          const response = visit.responses[question.id];
+                          
+                          if (question.type === 'multipleChoice' && question.options) {
+                            if (Array.isArray(response)) {
+                              // Multiple selection
+                              const selectedOptions = question.options
+                                .filter((opt: any) => response.includes(opt.value))
+                                .map((opt: any) => opt.label);
+                              responseDisplay = selectedOptions.join(', ');
+                            } else {
+                              // Single selection
+                              const selectedOption = question.options.find((opt: any) => opt.value === response);
+                              responseDisplay = selectedOption ? selectedOption.label : response;
+                            }
+                          } else if (question.type === 'boolean') {
+                            responseDisplay = response === true || response === 'true' ? 'Yes' : 'No';
+                          } else if (question.type === 'bmi' && typeof response === 'object') {
+                            responseDisplay = `BMI: ${response.value} (${response.category})`;
+                          } else if (question.type === 'vitalSigns' && typeof response === 'object') {
+                            const vitals = [];
+                            if (response.systolic && response.diastolic) {
+                              vitals.push(`Blood Pressure: ${response.systolic}/${response.diastolic} mmHg`);
+                            }
+                            if (response.heartRate) {
+                              vitals.push(`Heart Rate: ${response.heartRate} bpm`);
+                            }
+                            if (response.temperature) {
+                              vitals.push(`Temperature: ${response.temperature}° ${response.temperatureUnit || 'C'}`);
+                            }
+                            if (response.respiratoryRate) {
+                              vitals.push(`Respiratory Rate: ${response.respiratoryRate} bpm`);
+                            }
+                            if (response.oxygenSaturation) {
+                              vitals.push(`Oxygen Saturation: ${response.oxygenSaturation}%`);
+                            }
+                            responseDisplay = vitals.join(', ');
                           } else {
-                            // Single selection
-                            const selectedOption = question.options.find((opt: any) => opt.value === response);
-                            responseDisplay = selectedOption ? selectedOption.label : response;
+                            responseDisplay = String(response);
                           }
-                        } else if (question.type === 'boolean') {
-                          responseDisplay = response === true || response === 'true' ? 'Yes' : 'No';
-                        } else if (question.type === 'bmi' && typeof response === 'object') {
-                          responseDisplay = `BMI: ${response.value} (${response.category})`;
-                        } else if (question.type === 'vitalSigns' && typeof response === 'object') {
-                          const vitals = [];
-                          if (response.systolic && response.diastolic) {
-                            vitals.push(`Blood Pressure: ${response.systolic}/${response.diastolic} mmHg`);
-                          }
-                          if (response.heartRate) {
-                            vitals.push(`Heart Rate: ${response.heartRate} bpm`);
-                          }
-                          if (response.temperature) {
-                            vitals.push(`Temperature: ${response.temperature}° ${response.temperatureUnit || 'C'}`);
-                          }
-                          if (response.respiratoryRate) {
-                            vitals.push(`Respiratory Rate: ${response.respiratoryRate} bpm`);
-                          }
-                          if (response.oxygenSaturation) {
-                            vitals.push(`Oxygen Saturation: ${response.oxygenSaturation}%`);
-                          }
-                          responseDisplay = vitals.join(', ');
-                        } else {
-                          responseDisplay = String(response);
-                        }
-                        
-                        return (
-                          <div key={question.id} className="pb-3 border-b border-gray-200">
-                            <div className="font-medium">{question.text}</div>
-                            <div className="text-gray-800">{responseDisplay}</div>
-                          </div>
-                        );
-                      })}
+                          
+                          return (
+                            <div key={question.id} className="bg-gray-50 p-3 rounded-md shadow-sm">
+                              <div className="font-medium text-gray-800">{question.text}</div>
+                              <div className="mt-1 text-gray-700">{responseDisplay}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
-          
-          {/* Render health plan */}
-          {renderHealthPlan()}
           
           {/* Visit notes */}
           {visit.notes && (
-            <div className="mb-8">
-              <h3 className="text-xl font-bold mb-3">Additional Notes</h3>
-              <p className="whitespace-pre-line">{visit.notes}</p>
+            <div className="mb-8 p-5 bg-gray-50 rounded-lg border border-gray-200">
+              <h2 className="text-xl font-bold mb-2 text-primary-700 flex items-center">
+                <FiEdit className="mr-2" /> Provider Notes
+              </h2>
+              <p className="whitespace-pre-line mt-2 text-gray-800">{visit.notes}</p>
             </div>
           )}
           
-          <div className="text-center mt-12 text-sm text-gray-500">
+          <div className="text-center mt-8 text-sm text-gray-500 pt-4 border-t border-gray-200">
             <p>Report generated on {new Date().toLocaleDateString()}</p>
+            <p className="mt-1">This report is for informational purposes only. Please consult with your healthcare provider for any medical advice.</p>
           </div>
         </div>
       </div>

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { type NextApiRequest } from 'next';
 import connectToDatabase from '@/lib/mongodb';
 import mongoose from 'mongoose';
 import { z } from 'zod';
@@ -81,16 +80,12 @@ const VisitUpdateSchema = z.object({
   completedSections: z.array(z.number()).optional()
 });
 
-// Define the correct interface for route params
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
-
 // GET /api/visits/[id] - Fetch a specific visit
-export async function GET(request: NextRequest, context: RouteParams): Promise<NextResponse> {
-  const id = context.params.id;
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const id = params.id;
   
   // Validate ID format
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
@@ -125,8 +120,11 @@ export async function GET(request: NextRequest, context: RouteParams): Promise<N
 }
 
 // PUT /api/visits/[id] - Update a visit
-export async function PUT(request: NextRequest, context: RouteParams): Promise<NextResponse> {
-  const id = context.params.id;
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const id = params.id;
   
   // Validate ID format
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
@@ -177,8 +175,11 @@ export async function PUT(request: NextRequest, context: RouteParams): Promise<N
 }
 
 // DELETE /api/visits/[id] - Delete a visit
-export async function DELETE(request: NextRequest, context: RouteParams): Promise<NextResponse> {
-  const id = context.params.id;
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const id = params.id;
   
   // Validate ID format
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {

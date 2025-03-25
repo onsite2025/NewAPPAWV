@@ -1,47 +1,13 @@
 import { Handler, HandlerEvent, HandlerContext, HandlerResponse } from '@netlify/functions';
 import { NextRequest, NextResponse } from 'next/server';
-import mongoose from 'mongoose';
+import { connectToDatabase } from '../../src/lib/mongodb';
 
 // Import your API route handlers
-import { GET as getPatients, POST as postPatient } from '../../src/app/api/patients/route';
+import { GET as getPatients, POST as postPatient, PUT as putPatient, DELETE as deletePatient } from '../../src/app/api/patients/route';
 import { GET as getVisits, POST as postVisit } from '../../src/app/api/visits/route';
 import { GET as getUsers, POST as postUser } from '../../src/app/api/users/route';
 import { GET as getPractice } from '../../src/app/api/practice/route';
 import { GET as getTemplates, POST as postTemplate, PUT as putTemplate, DELETE as deleteTemplate } from '../../src/app/api/templates/route';
-
-// MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI;
-let cachedConnection: mongoose.Connection | null = null;
-
-async function connectToDatabase(): Promise<mongoose.Connection> {
-  if (cachedConnection) {
-    return cachedConnection;
-  }
-
-  if (!MONGODB_URI) {
-    throw new Error('MONGODB_URI is not defined');
-  }
-
-  try {
-    const connection = await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-      connectTimeoutMS: 10000,
-      maxPoolSize: 10,
-      minPoolSize: 1,
-      retryWrites: true,
-      retryReads: true,
-      ssl: true,
-    });
-
-    console.log('✅ Connected to MongoDB');
-    cachedConnection = connection.connection;
-    return cachedConnection;
-  } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
-    throw error;
-  }
-}
 
 const createHeaders = (cors: boolean = true): Record<string, string> => {
   const headers: Record<string, string> = {
@@ -101,7 +67,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
           headers: createHeaders()
         };
       } catch (error) {
-        console.error('❌ MongoDB connection error:', error);
+        console.error('❌ MongoDB connection test failed:', error);
         return {
           statusCode: 500,
           body: JSON.stringify({ 
@@ -113,23 +79,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
         };
       }
     }
-    
-    // Connect to MongoDB for other endpoints
-    try {
-      await connectToDatabase();
-    } catch (error) {
-      console.error('Failed to connect to MongoDB:', error);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ 
-          error: 'Database connection failed',
-          details: error instanceof Error ? error.message : 'Unknown error',
-          timestamp: new Date().toISOString()
-        }),
-        headers: createHeaders()
-      };
-    }
-    
+
     // Log request details
     console.log('Processing request:', {
       method: event.httpMethod,
@@ -137,19 +87,74 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
       query: event.queryStringParameters
     });
 
-    // Handle the request based on the path
-    let response: any;
-    
-    try {
-      // Import and use the appropriate route handler
-      const routeModule = await import(`../../src/app/api${path}/route`);
-      const handler = routeModule[event.httpMethod];
-      
-      if (!handler) {
-        throw new Error(`No handler for ${event.httpMethod} ${path}`);
+    // Map routes to handlers
+    const routes: Record<string, Record<string, Function>> = {
+      '/patients': {
+        GET: getPatients,
+        POST: postPatient,
+        PUT: putPatient,
+        DELETE: deletePatient
+      },
+      '/visits': {
+        GET: getVisits,
+        POST: postVisit
+      },
+      '/users': {
+        GET: getUsers,
+        POST: postUser
+      },
+      '/practice': {
+        GET: getPractice
+      },
+      '/templates': {
+        GET: getTemplates,
+        POST: postTemplate,
+        PUT: putTemplate,
+        DELETE: deleteTemplate
       }
+    };
+
+    // Find the appropriate handler
+    const routeHandlers = routes[path];
+    if (!routeHandlers) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ 
+          error: 'Not found',
+          path,
+          timestamp: new Date().toISOString()
+        }),
+        headers: createHeaders()
+      };
+    }
+
+    const handler = routeHandlers[event.httpMethod];
+    if (!handler) {
+      return {
+        statusCode: 405,
+        body: JSON.stringify({ 
+          error: 'Method not allowed',
+          method: event.httpMethod,
+          path,
+          timestamp: new Date().toISOString()
+        }),
+        headers: createHeaders()
+      };
+    }
+
+    try {
+      // Connect to MongoDB before handling the request
+      await connectToDatabase();
       
-      response = await handler(request);
+      // Handle the request
+      const response = await handler(request);
+      const responseData = await response.json();
+      
+      return {
+        statusCode: response.status || 200,
+        body: JSON.stringify(responseData),
+        headers: createHeaders()
+      };
     } catch (error) {
       console.error(`Error handling ${path}:`, error);
       return {
@@ -163,15 +168,6 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
         headers: createHeaders()
       };
     }
-
-    // Convert NextResponse to Netlify function response
-    const responseData = await response.json();
-    
-    return {
-      statusCode: response.status || 200,
-      body: JSON.stringify(responseData),
-      headers: createHeaders()
-    };
   } catch (error) {
     console.error('Unhandled error:', error);
     return {

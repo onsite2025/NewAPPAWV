@@ -27,7 +27,7 @@ interface Condition {
 interface Question {
   id: string;
   text: string;
-  type: 'text' | 'textarea' | 'select' | 'radio' | 'checkbox' | 'range';
+  type: 'text' | 'textarea' | 'select' | 'radio' | 'checkbox' | 'range' | 'bmi' | 'vitalSigns' | 'phq2' | 'cognitiveAssessment' | 'cageScreening';
   required: boolean;
   options?: Option[];
   minValue?: number;
@@ -35,6 +35,17 @@ interface Question {
   condition?: Condition;
   includeRecommendation: boolean;
   defaultRecommendation?: string;
+  config?: {
+    units?: 'metric' | 'imperial'; // For BMI
+    heightField?: string; // For BMI reference
+    weightField?: string; // For BMI reference
+    thresholds?: { // For PHQ-2, MMSE, and CAGE
+      min?: number;
+      max?: number;
+      warningThreshold?: number;
+    };
+    subtype?: string; // For specific subtypes of questions
+  };
 }
 
 interface Section {
@@ -102,6 +113,14 @@ const convertApiToEditorTemplate = (apiTemplate: ITemplateResponse | null): Edit
           value: q.conditionalLogic.showWhen?.value?.toString() || '',
         } : undefined,
         includeRecommendation: false, // Not directly available in API model
+        config: q.config || { // Add config for specialized question types
+          units: 'metric',
+          thresholds: {
+            min: 0,
+            max: 10,
+            warningThreshold: 3
+          }
+        }
       })),
     };
   });
@@ -123,7 +142,20 @@ const convertApiToEditorTemplate = (apiTemplate: ITemplateResponse | null): Edit
     id,
     name: apiTemplate.name || '',
     description: apiTemplate.description || '',
-    sections: mappedSections,
+    sections: mappedSections.map(section => ({
+      ...section,
+      questions: section.questions.map(q => ({
+        ...q,
+        config: q.config || { // Add config for specialized question types
+          units: 'metric',
+          thresholds: {
+            min: 0,
+            max: 10,
+            warningThreshold: 3
+          }
+        }
+      }))
+    })),
   };
 };
 
@@ -196,6 +228,11 @@ const convertQuestionType = (apiType: string): Question['type'] => {
     case 'numeric': return 'range';
     case 'date': return 'text';
     case 'boolean': return 'radio';
+    case 'bmi': return 'bmi';
+    case 'vitalSigns': return 'vitalSigns';
+    case 'phq2': return 'phq2';
+    case 'cognitiveAssessment': return 'cognitiveAssessment';
+    case 'cageScreening': return 'cageScreening';
     default: return 'text';
   }
 };
@@ -213,6 +250,16 @@ const convertEditorQuestionType = (editorType: Question['type']): string => {
       return 'multipleChoice';
     case 'range':
       return 'numeric';
+    case 'bmi':
+      return 'bmi';
+    case 'vitalSigns':
+      return 'vitalSigns';
+    case 'phq2':
+      return 'phq2';
+    case 'cognitiveAssessment':
+      return 'cognitiveAssessment';
+    case 'cageScreening':
+      return 'cageScreening';
     default:
       return 'text';
   }
@@ -372,16 +419,90 @@ export default function EditTemplatePage() {
     setActiveSection(newIndex);
   };
   
-  const addQuestion = (sectionIndex: number) => {
+  const addQuestion = (sectionIndex: number, questionType: Question['type'] = 'text') => {
     if (!template) return;
     
-    const newQuestion: Question = {
+    let newQuestion: Question = {
       id: uuidv4(),
       text: 'New Question',
-      type: 'text',
+      type: questionType,
       required: false,
       includeRecommendation: false,
     };
+    
+    // Add specialized configurations based on question type
+    switch (questionType) {
+      case 'bmi':
+        newQuestion = {
+          ...newQuestion,
+          text: 'BMI Calculation',
+          config: {
+            units: 'metric',
+            heightField: '', // Will be set during setup
+            weightField: '', // Will be set during setup
+          }
+        };
+        break;
+      case 'vitalSigns':
+        newQuestion = {
+          ...newQuestion,
+          text: 'Vital Signs',
+          config: {
+            subtype: 'full', // 'full' = BP, HR, RR, Temp, O2 | 'basic' = BP, HR only
+          }
+        };
+        break;
+      case 'phq2':
+        newQuestion = {
+          ...newQuestion,
+          text: 'PHQ-2 Depression Screening',
+          options: [
+            { id: uuidv4(), text: 'Question 1: Little interest or pleasure in doing things', recommendation: '' },
+            { id: uuidv4(), text: 'Question 2: Feeling down, depressed, or hopeless', recommendation: '' }
+          ],
+          config: {
+            thresholds: {
+              min: 0,
+              max: 6,
+              warningThreshold: 3
+            }
+          }
+        };
+        break;
+      case 'cognitiveAssessment':
+        newQuestion = {
+          ...newQuestion,
+          text: 'Cognitive Assessment',
+          config: {
+            subtype: 'mmse', // 'mmse' = Mini-Mental State Examination
+            thresholds: {
+              min: 0,
+              max: 30,
+              warningThreshold: 24 // <24 typically indicates cognitive impairment
+            }
+          }
+        };
+        break;
+      case 'cageScreening':
+        newQuestion = {
+          ...newQuestion,
+          text: 'CAGE Alcohol Screening',
+          options: [
+            { id: uuidv4(), text: 'Have you ever felt you needed to Cut down on your drinking?', recommendation: '' },
+            { id: uuidv4(), text: 'Have people Annoyed you by criticizing your drinking?', recommendation: '' },
+            { id: uuidv4(), text: 'Have you ever felt Guilty about drinking?', recommendation: '' },
+            { id: uuidv4(), text: 'Have you ever felt you needed a drink first thing in the morning (Eye-opener)?', recommendation: '' }
+          ],
+          config: {
+            thresholds: {
+              min: 0,
+              max: 4,
+              warningThreshold: 2 // ≥2 typically indicates alcohol problem
+            }
+          }
+        };
+        break;
+    }
     
     const updatedSections = [...template.sections];
     updatedSections[sectionIndex].questions.push(newQuestion);
@@ -672,12 +793,48 @@ export default function EditTemplatePage() {
           <div className="border-t pt-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-md font-medium">Questions</h3>
-              <button
-                onClick={() => addQuestion(activeSection)}
-                className="btn-secondary text-sm flex items-center"
-              >
-                <FiPlus className="mr-1" /> Add Question
-              </button>
+              <div className="relative inline-block">
+                <button
+                  onClick={() => {
+                    const dropdown = document.getElementById(`add-question-dropdown-${activeSection}`);
+                    if (dropdown) {
+                      dropdown.classList.toggle('hidden');
+                    }
+                  }}
+                  className="btn-secondary flex items-center"
+                >
+                  <FiPlus className="mr-1" /> Add Question
+                </button>
+                <div 
+                  id={`add-question-dropdown-${activeSection}`}
+                  className="hidden absolute right-0 mt-2 w-64 bg-white border border-gray-300 rounded shadow-lg z-10"
+                >
+                  <div className="p-2 border-b text-sm font-medium text-gray-600">Question Types</div>
+                  <div className="max-h-64 overflow-y-auto">
+                    <div className="p-2 border-b">
+                      <div className="font-medium text-sm text-gray-700 mb-1">Basic</div>
+                      <div className="space-y-1">
+                        <button onClick={() => { addQuestion(activeSection, 'text'); document.getElementById(`add-question-dropdown-${activeSection}`)?.classList.add('hidden'); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">Text</button>
+                        <button onClick={() => { addQuestion(activeSection, 'textarea'); document.getElementById(`add-question-dropdown-${activeSection}`)?.classList.add('hidden'); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">Text Area</button>
+                        <button onClick={() => { addQuestion(activeSection, 'select'); document.getElementById(`add-question-dropdown-${activeSection}`)?.classList.add('hidden'); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">Select</button>
+                        <button onClick={() => { addQuestion(activeSection, 'radio'); document.getElementById(`add-question-dropdown-${activeSection}`)?.classList.add('hidden'); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">Radio</button>
+                        <button onClick={() => { addQuestion(activeSection, 'checkbox'); document.getElementById(`add-question-dropdown-${activeSection}`)?.classList.add('hidden'); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">Checkbox</button>
+                        <button onClick={() => { addQuestion(activeSection, 'range'); document.getElementById(`add-question-dropdown-${activeSection}`)?.classList.add('hidden'); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">Range</button>
+                      </div>
+                    </div>
+                    <div className="p-2">
+                      <div className="font-medium text-sm text-gray-700 mb-1">AWV Specialized</div>
+                      <div className="space-y-1">
+                        <button onClick={() => { addQuestion(activeSection, 'bmi'); document.getElementById(`add-question-dropdown-${activeSection}`)?.classList.add('hidden'); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">BMI Calculator</button>
+                        <button onClick={() => { addQuestion(activeSection, 'vitalSigns'); document.getElementById(`add-question-dropdown-${activeSection}`)?.classList.add('hidden'); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">Vital Signs</button>
+                        <button onClick={() => { addQuestion(activeSection, 'phq2'); document.getElementById(`add-question-dropdown-${activeSection}`)?.classList.add('hidden'); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">PHQ-2 Depression Screening</button>
+                        <button onClick={() => { addQuestion(activeSection, 'cognitiveAssessment'); document.getElementById(`add-question-dropdown-${activeSection}`)?.classList.add('hidden'); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">Cognitive Assessment</button>
+                        <button onClick={() => { addQuestion(activeSection, 'cageScreening'); document.getElementById(`add-question-dropdown-${activeSection}`)?.classList.add('hidden'); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">CAGE Alcohol Screening</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             
             {template.sections[activeSection].questions.length === 0 ? (
@@ -731,6 +888,11 @@ export default function EditTemplatePage() {
                           <option value="radio">Radio</option>
                           <option value="checkbox">Checkbox</option>
                           <option value="range">Range</option>
+                          <option value="bmi">BMI</option>
+                          <option value="vitalSigns">Vital Signs</option>
+                          <option value="phq2">PHQ-2</option>
+                          <option value="cognitiveAssessment">Cognitive Assessment</option>
+                          <option value="cageScreening">CAGE Screening</option>
                         </select>
                       </div>
                     </div>
@@ -918,6 +1080,197 @@ export default function EditTemplatePage() {
                             }
                             className="form-input w-full"
                           />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* After the question type dropdown, add specialized configuration options */}
+                    {question.type === 'bmi' && (
+                      <div className="mt-4 p-4 border rounded bg-blue-50">
+                        <h4 className="font-medium mb-2">BMI Calculator Configuration</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Units</label>
+                            <select
+                              value={question.config?.units || 'metric'}
+                              onChange={(e) => 
+                                handleQuestionChange(
+                                  activeSection, 
+                                  questionIndex, 
+                                  'config', 
+                                  { ...question.config, units: e.target.value }
+                                )
+                              }
+                              className="form-select w-full"
+                            >
+                              <option value="metric">Metric (cm, kg)</option>
+                              <option value="imperial">Imperial (in, lbs)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">
+                              The BMI calculator will automatically calculate BMI when height and weight are entered.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-sm text-gray-600">
+                          <p>This question will create two fields for height and weight input, and will automatically calculate and display the BMI value and category.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {question.type === 'vitalSigns' && (
+                      <div className="mt-4 p-4 border rounded bg-blue-50">
+                        <h4 className="font-medium mb-2">Vital Signs Configuration</h4>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Type</label>
+                          <select
+                            value={question.config?.subtype || 'full'}
+                            onChange={(e) => 
+                              handleQuestionChange(
+                                activeSection, 
+                                questionIndex, 
+                                'config', 
+                                { ...question.config, subtype: e.target.value }
+                              )
+                            }
+                            className="form-select w-full"
+                          >
+                            <option value="full">Full (BP, HR, RR, Temp, O2)</option>
+                            <option value="basic">Basic (BP, HR only)</option>
+                          </select>
+                        </div>
+                        <div className="mt-2 text-sm text-gray-600">
+                          <p>This question will create input fields for vital signs and validate entries against normal ranges.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {question.type === 'phq2' && (
+                      <div className="mt-4 p-4 border rounded bg-blue-50">
+                        <h4 className="font-medium mb-2">PHQ-2 Depression Screening Configuration</h4>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Warning Threshold</label>
+                          <input
+                            type="number"
+                            value={question.config?.thresholds?.warningThreshold || 3}
+                            onChange={(e) => 
+                              handleQuestionChange(
+                                activeSection, 
+                                questionIndex, 
+                                'config', 
+                                { 
+                                  ...question.config, 
+                                  thresholds: { 
+                                    ...question.config?.thresholds,
+                                    warningThreshold: parseInt(e.target.value) 
+                                  } 
+                                }
+                              )
+                            }
+                            min="0"
+                            max="6"
+                            className="form-input w-full"
+                          />
+                        </div>
+                        <div className="mt-4">
+                          <p className="text-sm font-medium mb-2">Standard PHQ-2 Questions:</p>
+                          <ul className="list-disc pl-5 text-sm text-gray-600">
+                            <li>Over the past 2 weeks, how often have you been bothered by little interest or pleasure in doing things?</li>
+                            <li>Over the past 2 weeks, how often have you been bothered by feeling down, depressed, or hopeless?</li>
+                          </ul>
+                          <p className="mt-2 text-sm text-gray-600">Each question is scored 0-3, with a total possible score of 0-6. Scores ≥3 typically indicate the need for further assessment.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {question.type === 'cognitiveAssessment' && (
+                      <div className="mt-4 p-4 border rounded bg-blue-50">
+                        <h4 className="font-medium mb-2">Cognitive Assessment Configuration</h4>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Test Type</label>
+                          <select
+                            value={question.config?.subtype || 'mmse'}
+                            onChange={(e) => 
+                              handleQuestionChange(
+                                activeSection, 
+                                questionIndex, 
+                                'config', 
+                                { ...question.config, subtype: e.target.value }
+                              )
+                            }
+                            className="form-select w-full"
+                          >
+                            <option value="mmse">Mini-Mental State Examination (MMSE)</option>
+                            <option value="moca">Montreal Cognitive Assessment (MoCA)</option>
+                          </select>
+                        </div>
+                        <div className="mt-2">
+                          <label className="block text-sm font-medium mb-1">Warning Threshold</label>
+                          <input
+                            type="number"
+                            value={question.config?.thresholds?.warningThreshold || 24}
+                            onChange={(e) => 
+                              handleQuestionChange(
+                                activeSection, 
+                                questionIndex, 
+                                'config', 
+                                { 
+                                  ...question.config, 
+                                  thresholds: { 
+                                    ...question.config?.thresholds,
+                                    warningThreshold: parseInt(e.target.value) 
+                                  } 
+                                }
+                              )
+                            }
+                            min="0"
+                            max="30"
+                            className="form-input w-full"
+                          />
+                        </div>
+                        <div className="mt-2 text-sm text-gray-600">
+                          <p>This question will provide a structured cognitive assessment with automated scoring. Scores below the threshold will be flagged for further evaluation.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {question.type === 'cageScreening' && (
+                      <div className="mt-4 p-4 border rounded bg-blue-50">
+                        <h4 className="font-medium mb-2">CAGE Alcohol Screening Configuration</h4>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Warning Threshold</label>
+                          <input
+                            type="number"
+                            value={question.config?.thresholds?.warningThreshold || 2}
+                            onChange={(e) => 
+                              handleQuestionChange(
+                                activeSection, 
+                                questionIndex, 
+                                'config', 
+                                { 
+                                  ...question.config, 
+                                  thresholds: { 
+                                    ...question.config?.thresholds,
+                                    warningThreshold: parseInt(e.target.value) 
+                                  } 
+                                }
+                              )
+                            }
+                            min="0"
+                            max="4"
+                            className="form-input w-full"
+                          />
+                        </div>
+                        <div className="mt-4">
+                          <p className="text-sm font-medium mb-2">Standard CAGE Questions:</p>
+                          <ul className="list-disc pl-5 text-sm text-gray-600">
+                            <li>Have you ever felt you needed to <strong>C</strong>ut down on your drinking?</li>
+                            <li>Have people <strong>A</strong>nnoyed you by criticizing your drinking?</li>
+                            <li>Have you ever felt <strong>G</strong>uilty about drinking?</li>
+                            <li>Have you ever felt you needed a drink first thing in the morning (<strong>E</strong>ye-opener)?</li>
+                          </ul>
+                          <p className="mt-2 text-sm text-gray-600">Each "Yes" answer counts as 1 point, with a total possible score of 0-4. Scores ≥2 typically indicate a potential alcohol problem.</p>
                         </div>
                       </div>
                     )}

@@ -258,8 +258,74 @@ export default function VisitReportPage() {
           let formattedResponse = visit.responses[question.id];
           let recommendation = '';
           
-          // Handle different response types
-          if (question.type === 'multipleChoice' || question.type === 'boolean') {
+          // Handle specialized question types
+          if (question.type === 'bmi') {
+            // Format BMI result
+            const bmiValue = visit.responses[question.id];
+            const bmiCategory = visit.responses[`${question.id}_category`];
+            formattedResponse = `BMI: ${bmiValue} (${bmiCategory})`;
+            recommendation = getBMIRecommendation(bmiValue);
+          } 
+          else if (question.type === 'vitalSigns') {
+            // Format vital signs
+            const systolic = visit.responses[`${question.id}_systolic`];
+            const diastolic = visit.responses[`${question.id}_diastolic`];
+            const heartRate = visit.responses[`${question.id}_heartRate`];
+            
+            let vitalSignsText = `BP: ${systolic}/${diastolic} mmHg, HR: ${heartRate} bpm`;
+            
+            // Add additional vital signs if available
+            if (visit.responses[`${question.id}_respiratoryRate`]) {
+              vitalSignsText += `, RR: ${visit.responses[`${question.id}_respiratoryRate`]} breaths/min`;
+            }
+            if (visit.responses[`${question.id}_temperature`]) {
+              vitalSignsText += `, Temp: ${visit.responses[`${question.id}_temperature`]}°F`;
+            }
+            if (visit.responses[`${question.id}_oxygenSaturation`]) {
+              vitalSignsText += `, O2: ${visit.responses[`${question.id}_oxygenSaturation`]}%`;
+            }
+            
+            formattedResponse = vitalSignsText;
+            recommendation = getVitalSignsRecommendation(systolic, diastolic, heartRate);
+          }
+          else if (question.type === 'phq2') {
+            // Format PHQ-2 result
+            const score = visit.responses[question.id];
+            const risk = visit.responses[`${question.id}_risk`];
+            formattedResponse = `Score: ${score}/6 (Risk: ${risk})`;
+            
+            if (risk === 'High') {
+              recommendation = 'Consider further assessment with PHQ-9 and referral to mental health services.';
+            } else {
+              recommendation = 'Continue monitoring for depression symptoms at future visits.';
+            }
+          }
+          else if (question.type === 'cognitiveAssessment') {
+            // Format cognitive assessment result
+            const score = visit.responses[question.id];
+            const risk = visit.responses[`${question.id}_risk`];
+            const testType = question.config?.subtype === 'mmse' ? 'MMSE' : 'MoCA';
+            formattedResponse = `${testType} Score: ${score}/30 (Risk: ${risk})`;
+            
+            if (risk === 'High') {
+              recommendation = 'Results indicate potential cognitive impairment. Consider referral for comprehensive neuropsychological testing.';
+            } else {
+              recommendation = 'Cognitive function appears normal. Continue monitoring at future visits.';
+            }
+          }
+          else if (question.type === 'cageScreening') {
+            // Format CAGE result
+            const score = visit.responses[question.id];
+            const risk = visit.responses[`${question.id}_risk`];
+            formattedResponse = `Score: ${score}/4 (Risk: ${risk})`;
+            
+            if (risk === 'High') {
+              recommendation = 'Results suggest potential alcohol problem. Consider referral for alcohol abuse assessment and counseling.';
+            } else {
+              recommendation = 'Continue monitoring alcohol use at future visits.';
+            }
+          }
+          else if (question.type === 'multipleChoice' || question.type === 'boolean') {
             if (Array.isArray(formattedResponse)) {
               // For checkbox-type questions
               const selectedOptions = formattedResponse.map(respId => {
@@ -304,6 +370,41 @@ export default function VisitReportPage() {
         });
       }
     }
+  }
+  
+  // Helper functions for recommendations
+  function getBMIRecommendation(bmi: number): string {
+    if (bmi < 18.5) {
+      return 'BMI is below normal range. Consider nutrition counseling to achieve healthy weight.';
+    } else if (bmi < 25) {
+      return 'BMI is within normal range. Continue maintaining healthy diet and exercise habits.';
+    } else if (bmi < 30) {
+      return 'BMI indicates overweight. Recommend lifestyle modifications including increased physical activity and dietary changes.';
+    } else {
+      return 'BMI indicates obesity. Recommend comprehensive weight management program, including nutrition counseling, regular exercise, and possibly referral to weight management specialist.';
+    }
+  }
+  
+  function getVitalSignsRecommendation(systolic: number, diastolic: number, heartRate: number): string {
+    let recommendations = [];
+    
+    // Blood pressure recommendations
+    if (systolic >= 180 || diastolic >= 120) {
+      recommendations.push('Blood pressure indicates hypertensive crisis. Immediate medical attention recommended.');
+    } else if (systolic >= 140 || diastolic >= 90) {
+      recommendations.push('Blood pressure indicates hypertension. Follow-up with primary care provider recommended.');
+    } else if (systolic >= 130 || diastolic >= 80) {
+      recommendations.push('Blood pressure indicates elevated/stage 1 hypertension. Lifestyle modifications recommended.');
+    }
+    
+    // Heart rate recommendations
+    if (heartRate > 100) {
+      recommendations.push('Heart rate is elevated. Monitor for symptoms and consider evaluation if persistent.');
+    } else if (heartRate < 60) {
+      recommendations.push('Heart rate is below normal range. Consider evaluation if symptomatic.');
+    }
+    
+    return recommendations.length > 0 ? recommendations.join(' ') : 'Vital signs are within normal ranges.';
   }
   
   return (

@@ -3,12 +3,14 @@ import mongoose, { Schema, Document, model, Model } from 'mongoose';
 export interface IOption {
   value: string;
   label: string;
+  recommendation?: string;
+  score?: number; // For scored questions (PHQ-2, MMSE, CAGE)
 }
 
 export interface IQuestion {
   id: string;
   text: string;
-  type: 'text' | 'multipleChoice' | 'numeric' | 'date' | 'boolean';
+  type: 'text' | 'multipleChoice' | 'numeric' | 'date' | 'boolean' | 'bmi' | 'vitalSigns' | 'phq2' | 'cognitiveAssessment' | 'cageScreening';
   required: boolean;
   options?: IOption[];
   conditionalLogic?: {
@@ -17,6 +19,17 @@ export interface IQuestion {
       value: string | number | boolean;
       operator: 'equals' | 'notEquals' | 'greaterThan' | 'lessThan';
     };
+  };
+  config?: {
+    units?: 'metric' | 'imperial'; // For BMI
+    heightField?: string; // For BMI reference
+    weightField?: string; // For BMI reference
+    thresholds?: { // For PHQ-2, MMSE, and CAGE
+      min?: number;
+      max?: number;
+      warningThreshold?: number;
+    };
+    subtype?: string; // For specific subtypes of questions
   };
 }
 
@@ -51,7 +64,9 @@ export interface ITemplateResponse extends ITemplateBase {
 // Define the schema for options
 const OptionSchema = new Schema<IOption>({
   value: { type: String, required: true },
-  label: { type: String, required: true }
+  label: { type: String, required: true },
+  recommendation: String,
+  score: Number
 }, { _id: false });
 
 // Define the schema for conditional logic
@@ -67,18 +82,35 @@ const ConditionalLogicSchema = new Schema({
   }
 }, { _id: false });
 
+// Define a schema for config
+const ConfigSchema = new Schema({
+  units: { type: String, enum: ['metric', 'imperial'] },
+  heightField: String,
+  weightField: String,
+  thresholds: {
+    min: Number,
+    max: Number,
+    warningThreshold: Number
+  },
+  subtype: String
+}, { _id: false });
+
 // Define the schema for questions
 const QuestionSchema = new Schema<IQuestion>({
   id: { type: String, required: true },
   text: { type: String, required: true },
   type: { 
     type: String, 
-    enum: ['text', 'multipleChoice', 'numeric', 'date', 'boolean'],
+    enum: [
+      'text', 'multipleChoice', 'numeric', 'date', 'boolean', 
+      'bmi', 'vitalSigns', 'phq2', 'cognitiveAssessment', 'cageScreening'
+    ],
     required: true 
   },
   required: { type: Boolean, default: false },
   options: [OptionSchema],
-  conditionalLogic: ConditionalLogicSchema
+  conditionalLogic: ConditionalLogicSchema,
+  config: ConfigSchema
 }, { _id: false });
 
 // Define the schema for sections

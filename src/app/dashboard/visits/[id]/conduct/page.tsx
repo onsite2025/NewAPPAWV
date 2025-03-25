@@ -32,6 +32,17 @@ interface QuestionBase {
   conditional?: ConditionalLogic;
   includeRecommendation?: boolean;
   defaultRecommendation?: string;
+  config?: {
+    units?: 'metric' | 'imperial'; // For BMI
+    heightField?: string; // For BMI reference
+    weightField?: string; // For BMI reference
+    thresholds?: { // For PHQ-2, MMSE, and CAGE
+      min?: number;
+      max?: number;
+      warningThreshold?: number;
+    };
+    subtype?: string; // For specific subtypes of questions
+  };
 }
 
 interface TextQuestion extends QuestionBase {
@@ -54,7 +65,52 @@ interface RangeQuestion extends QuestionBase {
   max?: number;
 }
 
-type Question = TextQuestion | SelectQuestion | CheckboxQuestion | RangeQuestion;
+interface BMIQuestion extends QuestionBase {
+  type: 'bmi';
+  config: {
+    units: 'metric' | 'imperial';
+  };
+}
+
+interface VitalSignsQuestion extends QuestionBase {
+  type: 'vitalSigns';
+  config: {
+    subtype: 'full' | 'basic';
+  };
+}
+
+interface PHQ2Question extends QuestionBase {
+  type: 'phq2';
+  options: Option[];
+  config: {
+    thresholds: {
+      warningThreshold: number;
+    };
+  };
+}
+
+interface CognitiveAssessmentQuestion extends QuestionBase {
+  type: 'cognitiveAssessment';
+  config: {
+    subtype: 'mmse' | 'moca';
+    thresholds: {
+      warningThreshold: number;
+    };
+  };
+}
+
+interface CAGEQuestion extends QuestionBase {
+  type: 'cageScreening';
+  options: Option[];
+  config: {
+    thresholds: {
+      warningThreshold: number;
+    };
+  };
+}
+
+type Question = TextQuestion | SelectQuestion | CheckboxQuestion | RangeQuestion | 
+  BMIQuestion | VitalSignsQuestion | PHQ2Question | CognitiveAssessmentQuestion | CAGEQuestion;
 
 interface QuestionnaireSection {
   id: string;
@@ -161,6 +217,51 @@ const questionnaireSections: QuestionnaireSection[] = [
     ]
   }
 ];
+
+// Function to calculate BMI
+const calculateBMI = (height: number, weight: number, units: 'metric' | 'imperial'): { value: number, category: string } => {
+  let bmi: number;
+  
+  if (units === 'metric') {
+    // Height in cm, weight in kg
+    const heightInMeters = height / 100;
+    bmi = weight / (heightInMeters * heightInMeters);
+  } else {
+    // Height in inches, weight in lbs
+    bmi = (weight * 703) / (height * height);
+  }
+  
+  // Round to one decimal place
+  bmi = Math.round(bmi * 10) / 10;
+  
+  // Determine BMI category
+  let category: string;
+  if (bmi < 18.5) {
+    category = 'Underweight';
+  } else if (bmi < 25) {
+    category = 'Normal weight';
+  } else if (bmi < 30) {
+    category = 'Overweight';
+  } else {
+    category = 'Obesity';
+  }
+  
+  return { value: bmi, category };
+};
+
+// Function to calculate PHQ-2 score
+const calculatePHQ2Score = (answers: number[]): { score: number, risk: string } => {
+  const score = answers.reduce((total, answer) => total + answer, 0);
+  const risk = score >= 3 ? 'High' : 'Low';
+  return { score, risk };
+};
+
+// Function to calculate CAGE score
+const calculateCAGEScore = (answers: boolean[]): { score: number, risk: string } => {
+  const score = answers.filter(answer => answer).length;
+  const risk = score >= 2 ? 'High' : 'Low';
+  return { score, risk };
+};
 
 export default function ConductVisitPage() {
   const params = useParams();
@@ -540,6 +641,465 @@ export default function ConductVisitPage() {
             className="form-textarea w-full"
             rows={4}
           />
+        );
+      case 'bmi': {
+        const units = question.config?.units || 'metric';
+        const heightLabel = units === 'metric' ? 'Height (cm)' : 'Height (in)';
+        const weightLabel = units === 'metric' ? 'Weight (kg)' : 'Weight (lbs)';
+        
+        // Get stored values
+        const heightValue = responses[`${question.id}_height`] || '';
+        const weightValue = responses[`${question.id}_weight`] || '';
+        
+        // Calculate BMI if both height and weight are provided
+        let bmiResult = null;
+        if (heightValue && weightValue) {
+          bmiResult = calculateBMI(
+            parseFloat(heightValue), 
+            parseFloat(weightValue), 
+            units
+          );
+        }
+        
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">{heightLabel}</label>
+                <input
+                  type="number"
+                  name={`${question.id}_height`}
+                  value={heightValue}
+                  onChange={(e) => {
+                    // Update height value
+                    const newResponses = {
+                      ...responses,
+                      [`${question.id}_height`]: e.target.value
+                    };
+                    
+                    // Recalculate BMI if weight exists
+                    if (weightValue) {
+                      const bmi = calculateBMI(
+                        parseFloat(e.target.value), 
+                        parseFloat(weightValue), 
+                        units
+                      );
+                      newResponses[question.id] = bmi.value;
+                      newResponses[`${question.id}_category`] = bmi.category;
+                    }
+                    
+                    setResponses(newResponses);
+                  }}
+                  className="form-input w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{weightLabel}</label>
+                <input
+                  type="number"
+                  name={`${question.id}_weight`}
+                  value={weightValue}
+                  onChange={(e) => {
+                    // Update weight value
+                    const newResponses = {
+                      ...responses,
+                      [`${question.id}_weight`]: e.target.value
+                    };
+                    
+                    // Recalculate BMI if height exists
+                    if (heightValue) {
+                      const bmi = calculateBMI(
+                        parseFloat(heightValue), 
+                        parseFloat(e.target.value), 
+                        units
+                      );
+                      newResponses[question.id] = bmi.value;
+                      newResponses[`${question.id}_category`] = bmi.category;
+                    }
+                    
+                    setResponses(newResponses);
+                  }}
+                  className="form-input w-full"
+                />
+              </div>
+            </div>
+            
+            {bmiResult && (
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded">
+                <div className="font-medium">BMI Result: {bmiResult.value}</div>
+                <div className="text-sm text-gray-600">
+                  Category: {bmiResult.category}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+      case 'vitalSigns': {
+        const subtype = question.config?.subtype || 'full';
+        const isFull = subtype === 'full';
+        
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Systolic BP (mmHg)</label>
+                <input
+                  type="number"
+                  name={`${question.id}_systolic`}
+                  value={responses[`${question.id}_systolic`] || ''}
+                  onChange={(e) => {
+                    setResponses({
+                      ...responses,
+                      [`${question.id}_systolic`]: e.target.value
+                    });
+                  }}
+                  className="form-input w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Diastolic BP (mmHg)</label>
+                <input
+                  type="number"
+                  name={`${question.id}_diastolic`}
+                  value={responses[`${question.id}_diastolic`] || ''}
+                  onChange={(e) => {
+                    setResponses({
+                      ...responses,
+                      [`${question.id}_diastolic`]: e.target.value
+                    });
+                  }}
+                  className="form-input w-full"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">Heart Rate (bpm)</label>
+              <input
+                type="number"
+                name={`${question.id}_heartRate`}
+                value={responses[`${question.id}_heartRate`] || ''}
+                onChange={(e) => {
+                  setResponses({
+                    ...responses,
+                    [`${question.id}_heartRate`]: e.target.value
+                  });
+                }}
+                className="form-input w-full"
+              />
+            </div>
+            
+            {isFull && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Respiratory Rate (breaths/min)</label>
+                  <input
+                    type="number"
+                    name={`${question.id}_respiratoryRate`}
+                    value={responses[`${question.id}_respiratoryRate`] || ''}
+                    onChange={(e) => {
+                      setResponses({
+                        ...responses,
+                        [`${question.id}_respiratoryRate`]: e.target.value
+                      });
+                    }}
+                    className="form-input w-full"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1">Temperature (°F)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name={`${question.id}_temperature`}
+                    value={responses[`${question.id}_temperature`] || ''}
+                    onChange={(e) => {
+                      setResponses({
+                        ...responses,
+                        [`${question.id}_temperature`]: e.target.value
+                      });
+                    }}
+                    className="form-input w-full"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1">Oxygen Saturation (%)</label>
+                  <input
+                    type="number"
+                    name={`${question.id}_oxygenSaturation`}
+                    value={responses[`${question.id}_oxygenSaturation`] || ''}
+                    onChange={(e) => {
+                      setResponses({
+                        ...responses,
+                        [`${question.id}_oxygenSaturation`]: e.target.value
+                      });
+                    }}
+                    className="form-input w-full"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        );
+      }
+      case 'phq2':
+        return (
+          <div className="space-y-4">
+            <div className="p-3 bg-blue-50 border border-blue-100 rounded mb-4">
+              <p className="text-sm">
+                Over the last 2 weeks, how often have you been bothered by the following problems?
+              </p>
+            </div>
+            
+            {/* Question 1 */}
+            <div className="p-3 border rounded">
+              <p className="font-medium mb-2">Little interest or pleasure in doing things</p>
+              <div className="space-y-2">
+                {['Not at all (0)', 'Several days (1)', 'More than half the days (2)', 'Nearly every day (3)'].map((option, index) => (
+                  <label key={index} className="flex items-center space-x-3">
+                    <input
+                      type="radio"
+                      name={`${question.id}_q1`}
+                      value={index}
+                      checked={responses[`${question.id}_q1`] === index.toString()}
+                      onChange={(e) => {
+                        const newResponses = {
+                          ...responses,
+                          [`${question.id}_q1`]: e.target.value
+                        };
+                        
+                        // Calculate score if both questions are answered
+                        if (newResponses[`${question.id}_q1`] !== undefined && newResponses[`${question.id}_q2`] !== undefined) {
+                          const score = calculatePHQ2Score([
+                            parseInt(newResponses[`${question.id}_q1`]), 
+                            parseInt(newResponses[`${question.id}_q2`])
+                          ]);
+                          newResponses[question.id] = score.score;
+                          newResponses[`${question.id}_risk`] = score.risk;
+                        }
+                        
+                        setResponses(newResponses);
+                      }}
+                      className="form-radio"
+                    />
+                    <span className="text-sm text-gray-700">{option}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            
+            {/* Question 2 */}
+            <div className="p-3 border rounded">
+              <p className="font-medium mb-2">Feeling down, depressed, or hopeless</p>
+              <div className="space-y-2">
+                {['Not at all (0)', 'Several days (1)', 'More than half the days (2)', 'Nearly every day (3)'].map((option, index) => (
+                  <label key={index} className="flex items-center space-x-3">
+                    <input
+                      type="radio"
+                      name={`${question.id}_q2`}
+                      value={index}
+                      checked={responses[`${question.id}_q2`] === index.toString()}
+                      onChange={(e) => {
+                        const newResponses = {
+                          ...responses,
+                          [`${question.id}_q2`]: e.target.value
+                        };
+                        
+                        // Calculate score if both questions are answered
+                        if (newResponses[`${question.id}_q1`] !== undefined && newResponses[`${question.id}_q2`] !== undefined) {
+                          const score = calculatePHQ2Score([
+                            parseInt(newResponses[`${question.id}_q1`]), 
+                            parseInt(newResponses[`${question.id}_q2`])
+                          ]);
+                          newResponses[question.id] = score.score;
+                          newResponses[`${question.id}_risk`] = score.risk;
+                        }
+                        
+                        setResponses(newResponses);
+                      }}
+                      className="form-radio"
+                    />
+                    <span className="text-sm text-gray-700">{option}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            
+            {/* Show score if both questions are answered */}
+            {responses[`${question.id}_q1`] !== undefined && responses[`${question.id}_q2`] !== undefined && (
+              <div className={`p-3 border rounded ${responses[`${question.id}_risk`] === 'High' ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100'}`}>
+                <p className="font-medium">PHQ-2 Score: {responses[question.id]}/6</p>
+                <p className="text-sm mt-1">
+                  Risk: {responses[`${question.id}_risk`]}
+                  {responses[`${question.id}_risk`] === 'High' && (
+                    <span className="block mt-1 text-red-600">
+                      Score ≥3 indicates further assessment may be needed
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      case 'cognitiveAssessment': {
+        const testType = question.config?.subtype || 'mmse';
+        const isMMSE = testType === 'mmse';
+        const scoreMax = isMMSE ? 30 : 30; // Both MMSE and MoCA are scored out of 30
+        
+        // Simplified implementation - in a real app, would have a full assessment form
+        return (
+          <div className="space-y-4">
+            <div className="p-3 bg-blue-50 border border-blue-100 rounded mb-4">
+              <p className="font-medium">{isMMSE ? 'Mini-Mental State Examination (MMSE)' : 'Montreal Cognitive Assessment (MoCA)'}</p>
+              <p className="text-sm mt-1">
+                This is a brief cognitive screening tool that assesses various cognitive domains.
+              </p>
+            </div>
+            
+            <div>
+              <label className="block font-medium mb-2">
+                Total Score (0-{scoreMax})
+                <span className="text-sm text-gray-600 ml-2">Enter the total score after completing the assessment</span>
+              </label>
+              <input
+                type="number"
+                name={question.id}
+                value={responses[question.id] || ''}
+                onChange={(e) => {
+                  const score = parseInt(e.target.value);
+                  const warningThreshold = question.config?.thresholds?.warningThreshold || 24;
+                  const risk = score < warningThreshold ? 'High' : 'Low';
+                  
+                  setResponses({
+                    ...responses,
+                    [question.id]: score,
+                    [`${question.id}_risk`]: risk
+                  });
+                }}
+                min="0"
+                max={scoreMax}
+                className="form-input w-full"
+              />
+            </div>
+            
+            {responses[question.id] && (
+              <div className={`p-3 border rounded ${responses[`${question.id}_risk`] === 'High' ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100'}`}>
+                <p className="font-medium">Cognitive Assessment Score: {responses[question.id]}/{scoreMax}</p>
+                <p className="text-sm mt-1">
+                  Risk: {responses[`${question.id}_risk`]}
+                  {responses[`${question.id}_risk`] === 'High' && (
+                    <span className="block mt-1 text-red-600">
+                      Score below threshold ({question.config?.thresholds?.warningThreshold || 24}) indicates potential cognitive impairment
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      }
+      case 'cageScreening':
+        return (
+          <div className="space-y-4">
+            <div className="p-3 bg-blue-50 border border-blue-100 rounded mb-4">
+              <p className="font-medium">CAGE Alcohol Screening Questionnaire</p>
+              <p className="text-sm mt-1">
+                Please answer the following questions about your alcohol use:
+              </p>
+            </div>
+            
+            {/* CAGE Questions */}
+            {[
+              'Have you ever felt you needed to Cut down on your drinking?',
+              'Have people Annoyed you by criticizing your drinking?',
+              'Have you ever felt Guilty about drinking?',
+              'Have you ever felt you needed a drink first thing in the morning (Eye-opener)?'
+            ].map((cageQuestion, index) => (
+              <div key={index} className="p-3 border rounded">
+                <p className="font-medium mb-2">{cageQuestion}</p>
+                <div className="space-x-4">
+                  <label className="inline-flex items-center">
+                    <input
+                      type="radio"
+                      name={`${question.id}_q${index}`}
+                      value="yes"
+                      checked={responses[`${question.id}_q${index}`] === 'yes'}
+                      onChange={(e) => {
+                        const newResponses = {
+                          ...responses,
+                          [`${question.id}_q${index}`]: e.target.value
+                        };
+                        
+                        // Calculate score if all questions are answered
+                        const allAnswered = [0, 1, 2, 3].every(i => 
+                          newResponses[`${question.id}_q${i}`] === 'yes' || newResponses[`${question.id}_q${i}`] === 'no'
+                        );
+                        
+                        if (allAnswered) {
+                          const answers = [0, 1, 2, 3].map(i => newResponses[`${question.id}_q${i}`] === 'yes');
+                          const score = calculateCAGEScore(answers);
+                          newResponses[question.id] = score.score;
+                          newResponses[`${question.id}_risk`] = score.risk;
+                        }
+                        
+                        setResponses(newResponses);
+                      }}
+                      className="form-radio"
+                    />
+                    <span className="ml-2">Yes</span>
+                  </label>
+                  <label className="inline-flex items-center">
+                    <input
+                      type="radio"
+                      name={`${question.id}_q${index}`}
+                      value="no"
+                      checked={responses[`${question.id}_q${index}`] === 'no'}
+                      onChange={(e) => {
+                        const newResponses = {
+                          ...responses,
+                          [`${question.id}_q${index}`]: e.target.value
+                        };
+                        
+                        // Calculate score if all questions are answered
+                        const allAnswered = [0, 1, 2, 3].every(i => 
+                          newResponses[`${question.id}_q${i}`] === 'yes' || newResponses[`${question.id}_q${i}`] === 'no'
+                        );
+                        
+                        if (allAnswered) {
+                          const answers = [0, 1, 2, 3].map(i => newResponses[`${question.id}_q${i}`] === 'yes');
+                          const score = calculateCAGEScore(answers);
+                          newResponses[question.id] = score.score;
+                          newResponses[`${question.id}_risk`] = score.risk;
+                        }
+                        
+                        setResponses(newResponses);
+                      }}
+                      className="form-radio"
+                    />
+                    <span className="ml-2">No</span>
+                  </label>
+                </div>
+              </div>
+            ))}
+            
+            {/* Show score if all questions are answered */}
+            {responses[question.id] !== undefined && (
+              <div className={`p-3 border rounded ${responses[`${question.id}_risk`] === 'High' ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100'}`}>
+                <p className="font-medium">CAGE Score: {responses[question.id]}/4</p>
+                <p className="text-sm mt-1">
+                  Risk: {responses[`${question.id}_risk`]}
+                  {responses[`${question.id}_risk`] === 'High' && (
+                    <span className="block mt-1 text-red-600">
+                      Score ≥2 indicates clinically significant alcohol problem
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
+          </div>
         );
       default:
         return (

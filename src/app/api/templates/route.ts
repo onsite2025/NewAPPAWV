@@ -1,4 +1,4 @@
-import connectToDatabase from '@/lib/mongodb';
+import mongoose from 'mongoose';
 import TemplateModel from '@/models/Template';
 import { uuidv4 } from '@/utils/uuid';
 
@@ -22,8 +22,10 @@ function createResponse(data: any, status: number = 200) {
 // GET: Retrieve all templates
 export async function GET(request: Request) {
   try {
-    // Connect to the database
-    await connectToDatabase();
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error('MongoDB connection is not ready');
+    }
     
     // Parse query parameters
     const { searchParams } = new URL(request.url);
@@ -62,8 +64,10 @@ export async function GET(request: Request) {
 // POST: Create a new template
 export async function POST(request: Request) {
   try {
-    // Connect to the database
-    await connectToDatabase();
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error('MongoDB connection is not ready');
+    }
     
     // Parse request body
     const body = await request.json();
@@ -136,8 +140,10 @@ export async function POST(request: Request) {
 // PUT: Update a template
 export async function PUT(request: Request) {
   try {
-    // Connect to the database
-    await connectToDatabase();
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error('MongoDB connection is not ready');
+    }
     
     // Parse request body and URL
     const body = await request.json();
@@ -209,8 +215,10 @@ export async function PUT(request: Request) {
 // DELETE: Delete a template
 export async function DELETE(request: Request) {
   try {
-    // Connect to the database
-    await connectToDatabase();
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error('MongoDB connection is not ready');
+    }
     
     // Parse URL parameters
     const { searchParams } = new URL(request.url);

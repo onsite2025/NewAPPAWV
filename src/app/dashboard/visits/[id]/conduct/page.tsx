@@ -222,17 +222,34 @@ export default function ConductVisitPage() {
               // Process template sections and questions
               const processedSections = templateData.sections.map((section: any) => ({
                 ...section,
-                questions: section.questions.map((question: any) => ({
-                  ...question,
-                  id: question.id || question._id || uuidv4(),
-                  type: question.type || 'text', // Ensure type is set
-                  options: question.options?.map((option: any) => ({
-                    ...option,
-                    id: option.id || option._id || uuidv4(),
-                    text: option.text || option.label || '', // Ensure text is set
-                    recommendation: option.recommendation || '' // Ensure recommendation is set
-                  })) || []
-                }))
+                questions: section.questions.map((question: any) => {
+                  // Determine the correct question type
+                  let questionType = question.type;
+                  if (!questionType) {
+                    // Infer type from options
+                    if (question.options && question.options.length > 0) {
+                      if (question.options.some((opt: any) => opt.selected)) {
+                        questionType = 'checkbox';
+                      } else {
+                        questionType = 'select';
+                      }
+                    } else {
+                      questionType = 'text';
+                    }
+                  }
+
+                  return {
+                    ...question,
+                    id: question.id || question._id || uuidv4(),
+                    type: questionType,
+                    options: question.options?.map((option: any) => ({
+                      id: option.id || option._id || uuidv4(),
+                      text: option.text || option.label || '',
+                      recommendation: option.recommendation || '',
+                      selected: option.selected || false
+                    })) || []
+                  };
+                })
               }));
               
               setQuestionnaireSections(processedSections);
@@ -255,45 +272,57 @@ export default function ConductVisitPage() {
     fetchVisitAndTemplate();
   }, [visitId]);
   
-  const handleInputChange = (questionId: string, value: any) => {
-    // Update responses
-    setResponses(prev => ({ ...prev, [questionId]: value }));
+  const handleInputChange = (question: Question, e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    const isCheckbox = type === 'checkbox';
+    const input = e.target as HTMLInputElement;
     
-    // Auto-set recommendations based on template options
-    const currentSection = questionnaireSections[activeSection];
-    const question = currentSection.questions.find(q => q.id === questionId);
+    let newValue: any;
     
-    if (question?.includeRecommendation) {
-      let recommendationText = '';
-      
+    if (isCheckbox) {
+      const currentValues = Array.isArray(responses[name]) ? responses[name] : [];
+      newValue = input.checked
+        ? [...currentValues, value]
+        : currentValues.filter((v: string) => v !== value);
+    } else {
+      newValue = value;
+    }
+    
+    setResponses(prev => ({
+      ...prev,
+      [name]: newValue
+    }));
+
+    // Auto-set recommendations based on selection
+    if (question.includeRecommendation) {
       if (question.type === 'select' || question.type === 'radio') {
-        // For select/radio, find the matching option and use its recommendation
-        const selectedOption = (question as SelectQuestion).options.find(opt => opt.id === value || opt.text === value);
+        const selectedOption = question.options.find(opt => opt.id === newValue);
         if (selectedOption?.recommendation) {
-          recommendationText = selectedOption.recommendation;
+          setRecommendations(prev => ({
+            ...prev,
+            [name]: selectedOption.recommendation || ''
+          }));
         }
       } else if (question.type === 'checkbox') {
-        // For checkboxes, combine recommendations from selected options
-        if (Array.isArray(value) && value.length > 0) {
-          const selectedRecommendations = value.map(v => {
-            const option = (question as CheckboxQuestion).options.find(opt => opt.id === v || opt.text === v);
-            return option?.recommendation || '';
-          }).filter(r => r !== '');
-          
-          recommendationText = selectedRecommendations.join(' ');
+        const selectedOptions = question.options.filter(opt => newValue.includes(opt.id));
+        const recommendations = selectedOptions
+          .map(opt => opt.recommendation)
+          .filter(Boolean);
+        if (recommendations.length > 0) {
+          setRecommendations(prev => ({
+            ...prev,
+            [name]: recommendations.join('\n')
+          }));
         }
       } else if (question.type === 'range') {
-        // For range questions, use the default recommendation and replace {value} placeholders
+        const numValue = parseInt(newValue);
         if (question.defaultRecommendation) {
-          recommendationText = question.defaultRecommendation.replace(/\{value\}/g, value.toString());
+          const recommendation = question.defaultRecommendation.replace('{value}', numValue.toString());
+          setRecommendations(prev => ({
+            ...prev,
+            [name]: recommendation
+          }));
         }
-      } else if (question.defaultRecommendation) {
-        // For text/textarea, use the default recommendation
-        recommendationText = question.defaultRecommendation;
-      }
-      
-      if (recommendationText) {
-        setRecommendations(prev => ({ ...prev, [questionId]: recommendationText }));
       }
     }
   };
@@ -406,90 +435,83 @@ export default function ConductVisitPage() {
   
   // Render form inputs based on question type
   const renderQuestion = (question: Question) => {
-    const currentValue = responses[question.id];
-    
     switch (question.type) {
       case 'select':
       case 'radio':
         return (
           <div className="space-y-2">
-            {(question as SelectQuestion).options.map((option) => (
-              <label key={option.id} className="flex items-center space-x-2">
+            {question.options.map((option) => (
+              <label key={option.id} className="flex items-center space-x-3">
                 <input
                   type={question.type === 'radio' ? 'radio' : 'checkbox'}
                   name={question.id}
                   value={option.id}
-                  checked={currentValue === option.id}
-                  onChange={(e) => handleInputChange(question.id, e.target.value)}
-                  className={question.type === 'radio' ? 'form-radio' : 'form-checkbox'}
+                  checked={Array.isArray(responses[question.id]) 
+                    ? responses[question.id].includes(option.id)
+                    : responses[question.id] === option.id}
+                  onChange={(e) => handleInputChange(question, e)}
+                  className={`form-${question.type === 'radio' ? 'radio' : 'checkbox'}`}
                 />
-                <span>{option.text}</span>
+                <span className="text-sm text-gray-700">{option.text}</span>
               </label>
             ))}
           </div>
         );
-        
       case 'checkbox':
         return (
           <div className="space-y-2">
-            {(question as CheckboxQuestion).options.map((option) => (
-              <label key={option.id} className="flex items-center space-x-2">
+            {question.options.map((option) => (
+              <label key={option.id} className="flex items-center space-x-3">
                 <input
                   type="checkbox"
+                  name={question.id}
                   value={option.id}
-                  checked={Array.isArray(currentValue) && currentValue.includes(option.id)}
-                  onChange={(e) => {
-                    const newValue = Array.isArray(currentValue) ? [...currentValue] : [];
-                    if (e.target.checked) {
-                      newValue.push(option.id);
-                    } else {
-                      const index = newValue.indexOf(option.id);
-                      if (index > -1) {
-                        newValue.splice(index, 1);
-                      }
-                    }
-                    handleInputChange(question.id, newValue);
-                  }}
+                  checked={Array.isArray(responses[question.id]) 
+                    ? responses[question.id].includes(option.id)
+                    : false}
+                  onChange={(e) => handleInputChange(question, e)}
                   className="form-checkbox"
                 />
-                <span>{option.text}</span>
+                <span className="text-sm text-gray-700">{option.text}</span>
               </label>
             ))}
           </div>
         );
-        
       case 'range':
         return (
           <div className="space-y-2">
             <input
               type="range"
-              min={(question as RangeQuestion).min || 0}
-              max={(question as RangeQuestion).max || 100}
-              value={currentValue || 0}
-              onChange={(e) => handleInputChange(question.id, parseInt(e.target.value))}
-              className="w-full"
+              name={question.id}
+              min={question.min || 0}
+              max={question.max || 100}
+              value={responses[question.id] || question.min || 0}
+              onChange={(e) => handleInputChange(question, e)}
+              className="form-range w-full"
             />
-            <div className="text-center">{currentValue || 0}</div>
+            <div className="text-sm text-gray-700 text-center">
+              {responses[question.id] || question.min || 0}
+            </div>
           </div>
         );
-        
       case 'textarea':
         return (
           <textarea
-            value={currentValue || ''}
-            onChange={(e) => handleInputChange(question.id, e.target.value)}
-            className="w-full p-2 border rounded"
+            name={question.id}
+            value={responses[question.id] || ''}
+            onChange={(e) => handleInputChange(question, e)}
+            className="form-textarea w-full"
             rows={4}
           />
         );
-        
       default:
         return (
           <input
             type="text"
-            value={currentValue || ''}
-            onChange={(e) => handleInputChange(question.id, e.target.value)}
-            className="w-full p-2 border rounded"
+            name={question.id}
+            value={responses[question.id] || ''}
+            onChange={(e) => handleInputChange(question, e)}
+            className="form-input w-full"
           />
         );
     }

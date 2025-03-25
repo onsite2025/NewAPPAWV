@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { FiChevronLeft, FiChevronRight, FiSave, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
 import visitService from '@/services/visitService';
 import templateService from '@/services/templateService';
+import { v4 as uuidv4 } from 'uuid';
 
 // Types and interfaces
 
@@ -196,7 +197,12 @@ export default function ConductVisitPage() {
         
         // Load progress if available
         if (visitData.responses) {
-          setResponses(visitData.responses || {});
+          // Convert responses to the expected format
+          const formattedResponses: Record<string, any> = {};
+          Object.entries(visitData.responses).forEach(([key, value]) => {
+            formattedResponses[key] = value;
+          });
+          setResponses(formattedResponses);
         }
         
         // Fetch template if available
@@ -205,8 +211,21 @@ export default function ConductVisitPage() {
             const templateData = await templateService.getTemplateById(visitData.templateId);
             if (templateData) {
               setTemplateName(templateData.name || 'Visit Assessment');
-              // Type assertion to ensure compatibility
-              setQuestionnaireSections(templateData.sections as unknown as QuestionnaireSection[] || []);
+              
+              // Process template sections and questions
+              const processedSections = templateData.sections.map((section: any) => ({
+                ...section,
+                questions: section.questions.map((question: any) => ({
+                  ...question,
+                  id: question.id || question._id || uuidv4(),
+                  options: question.options?.map((option: any) => ({
+                    ...option,
+                    id: option.id || option._id || uuidv4()
+                  })) || []
+                }))
+              }));
+              
+              setQuestionnaireSections(processedSections);
             }
           } catch (err) {
             console.error('Error loading template:', err);
@@ -227,6 +246,7 @@ export default function ConductVisitPage() {
   }, [visitId]);
   
   const handleInputChange = (questionId: string, value: any) => {
+    // Update responses
     setResponses(prev => ({ ...prev, [questionId]: value }));
     
     // Auto-set recommendations based on template options
@@ -238,7 +258,7 @@ export default function ConductVisitPage() {
       
       if (question.type === 'select' || question.type === 'radio') {
         // For select/radio, find the matching option and use its recommendation
-        const selectedOption = question.options.find(opt => opt.text === value || opt.id === value);
+        const selectedOption = question.options.find(opt => opt.id === value || opt.text === value);
         if (selectedOption?.recommendation) {
           recommendationText = selectedOption.recommendation;
         }
@@ -246,7 +266,7 @@ export default function ConductVisitPage() {
         // For checkboxes, combine recommendations from selected options
         if (Array.isArray(value) && value.length > 0) {
           const selectedRecommendations = value.map(v => {
-            const option = question.options.find(opt => opt.text === v || opt.id === v);
+            const option = question.options.find(opt => opt.id === v || opt.text === v);
             return option?.recommendation || '';
           }).filter(r => r !== '');
           
@@ -344,21 +364,6 @@ export default function ConductVisitPage() {
     
     if (isValid) {
       setIsSaving(true);
-      
-      // Compile health plan from recommendations
-      const healthPlan = Object.entries(recommendations)
-        .filter(([_, value]) => value.trim() !== '')
-        .map(([questionId, recommendation]) => {
-          // Find the question text for this recommendation
-          const questionText = findQuestionText(questionId);
-          const response = responses[questionId];
-          
-          return {
-            question: questionText,
-            response: response,
-            recommendation: recommendation
-          };
-        });
       
       try {
         // Update the visit status to completed and save responses

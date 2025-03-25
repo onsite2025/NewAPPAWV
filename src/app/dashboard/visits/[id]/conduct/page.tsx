@@ -362,12 +362,22 @@ const mapQuestionType = (templateType: TemplateQuestionType): AppQuestionType =>
 
 // Helper function to safely get option value
 function getOptionValue(option: any): string {
-  return option.value || option.id || '';
+  // Handle case where options with recommendations might have been transformed
+  if (option && typeof option === 'object') {
+    return option.value || option.id || '';
+  }
+  // Handle case where option might be a string or primitive
+  return String(option || '');
 }
 
 // Helper function to safely get option label
 function getOptionLabel(option: any): string {
-  return option.label || option.text || '';
+  // Handle case where options with recommendations might have been transformed
+  if (option && typeof option === 'object') {
+    return option.label || option.text || '';
+  }
+  // Handle case where option might be a string or primitive
+  return String(option || '');
 }
 
 // Type guard to check if a question is a ProcessedQuestion
@@ -758,6 +768,17 @@ export default function ConductVisitPage() {
     }));
 
     console.log(`Input change for ${name}: ${JSON.stringify(newValue)}`);
+
+    // First ensure options have all necessary properties
+    if (question.options) {
+      question.options = question.options.map((opt: any) => ({
+        ...opt,
+        id: opt.id || opt.value || '',
+        value: opt.value || opt.id || '',
+        label: opt.label || opt.text || '',
+        text: opt.text || opt.label || ''
+      }));
+    }
 
     // Auto-set recommendations based on selection
     if (question.includeRecommendation) {
@@ -1570,10 +1591,39 @@ export default function ConductVisitPage() {
     return 'Unknown Question';
   };
   
+  // Handle multiple choice rendering and recommendation collection
+  const processOptionsForRendering = (question: ProcessedQuestion | any) => {
+    // Make sure we don't lose options that have recommendations
+    if (question.options) {
+      return question.options.map((option: any) => {
+        // Ensure we preserve the original option structure
+        return {
+          ...option,
+          id: option.id || option.value,
+          value: option.value || option.id || '',
+          label: option.label || option.text || '',
+          text: option.text || option.label || ''
+        };
+      });
+    }
+    return [];
+  };
+
   // Render form inputs based on question type
   const renderQuestion = (question: ProcessedQuestion | any) => {
     // Force the proper input type based on the question structure, not relying on types
     console.log('RENDERING QUESTION:', question);
+    
+    // Clone options to ensure we don't lose any necessary properties
+    if (question.options) {
+      question.options = question.options.map((opt: any) => ({
+        ...opt,
+        id: opt.id || opt.value || '',
+        value: opt.value || opt.id || '',
+        label: opt.label || opt.text || '',
+        text: opt.text || opt.label || ''
+      }));
+    }
     
     // Handle BMI calculation - special check by question text or type
     if (question.text?.toLowerCase().includes('bmi') || question.type === 'bmi') {
@@ -3009,4 +3059,5 @@ export default function ConductVisitPage() {
       </div>
     </div>
   );
+} 
 } 

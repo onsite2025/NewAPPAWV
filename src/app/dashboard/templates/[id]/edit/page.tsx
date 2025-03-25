@@ -103,7 +103,7 @@ const convertApiToEditorTemplate = (apiTemplate: ITemplateResponse | null): Edit
         options: Array.isArray(q.options) ? q.options.map(opt => ({
           id: opt.value || uuidv4(),
           text: opt.label || '',
-          recommendation: '', // Not directly available in API model
+          recommendation: opt.recommendation || '', // Preserve recommendation if it exists
         })) : [],
         minValue: 0, // Default values
         maxValue: 10,
@@ -112,7 +112,8 @@ const convertApiToEditorTemplate = (apiTemplate: ITemplateResponse | null): Edit
           operator: q.conditionalLogic.showWhen?.operator === 'equals' ? 'equals' as const : 'notEquals' as const,
           value: q.conditionalLogic.showWhen?.value?.toString() || '',
         } : undefined,
-        includeRecommendation: false, // Not directly available in API model
+        includeRecommendation: q.includeRecommendation || false, // Preserve includeRecommendation
+        defaultRecommendation: q.defaultRecommendation || '', // Preserve defaultRecommendation
         config: q.config || { // Add config for specialized question types
           units: 'metric',
           thresholds: {
@@ -191,11 +192,13 @@ const convertEditorToApiTemplate = (editorTemplate: EditorTemplate): Omit<Templa
       return {
         id: q.id || uuidv4(),
         text: q.text || '',
-        type,
+        type, // Store converted type for API
+        originalType: q.type, // Store the original UI type as well
         required: q.required || false,
         options: Array.isArray(q.options) ? q.options.map(opt => ({
           value: opt.id || uuidv4(),
           label: opt.text || '',
+          recommendation: opt.recommendation || '', // Preserve recommendation
         })) : [],
         conditionalLogic: q.condition ? {
           dependsOn: q.condition.questionId || '',
@@ -206,6 +209,8 @@ const convertEditorToApiTemplate = (editorTemplate: EditorTemplate): Omit<Templa
               ('notEquals' as const),
           }
         } : undefined,
+        includeRecommendation: q.includeRecommendation || false, // Store recommendation flag
+        defaultRecommendation: q.defaultRecommendation || '', // Store default recommendation
       };
     }),
   }));

@@ -122,4 +122,91 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+// PUT /api/patients - Update a patient
+export async function PUT(request: Request) {
+  try {
+    // Connect to the database
+    await connectToDatabase();
+    
+    // Parse request body and URL
+    const body = await request.json();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Patient ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Validate required fields
+    if (!body.firstName || !body.lastName || !body.dateOfBirth || !body.gender) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+    
+    // Update the patient
+    const updatedPatient = await Patient.findByIdAndUpdate(
+      id,
+      { ...body, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedPatient) {
+      return NextResponse.json(
+        { error: 'Patient not found' },
+        { status: 404 }
+      );
+    }
+    
+    return NextResponse.json(updatedPatient, { status: 200 });
+  } catch (error) {
+    console.error('Error updating patient:', error);
+    return NextResponse.json(
+      { error: 'Failed to update patient' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/patients - Delete a patient
+export async function DELETE(request: Request) {
+  try {
+    // Connect to the database
+    await connectToDatabase();
+    
+    // Parse URL parameters
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Patient ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Delete the patient
+    const deletedPatient = await Patient.findByIdAndDelete(id);
+    
+    if (!deletedPatient) {
+      return NextResponse.json(
+        { error: 'Patient not found' },
+        { status: 404 }
+      );
+    }
+    
+    return NextResponse.json({ message: 'Patient deleted successfully' }, { status: 200 });
+  } catch (error) {
+    console.error('Error deleting patient:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete patient' },
+      { status: 500 }
+    );
+  }
 } 

@@ -123,7 +123,7 @@ const patientService = {
   // Get a specific patient by ID
   async getPatientById(id: string): Promise<Patient> {
     try {
-      const response = await fetch(`${BASE_URL}/patients/${id}`, {
+      const response = await fetch(`${BASE_URL}/patients?id=${id}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -131,15 +131,14 @@ const patientService = {
       });
       
       if (!response.ok) {
-        throw new Error('Server responded with an error');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch patient');
       }
       
       return await response.json();
     } catch (error) {
       console.error(`Error fetching patient with id ${id}:`, error);
-      
-      // Return a mock patient as fallback
-      return mockPatients.find(p => p._id === id) || mockPatients[0];
+      throw error;
     }
   },
   
@@ -155,35 +154,21 @@ const patientService = {
       });
       
       if (!response.ok) {
-        throw new Error('Server responded with an error');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create patient');
       }
       
       return await response.json();
     } catch (error) {
       console.error('Error creating patient:', error);
-      
-      // Return a mock patient with the new data as fallback
-      const mockPatient: Patient = {
-        _id: `new-${Date.now()}`,
-        firstName: patientData.firstName || 'New',
-        lastName: patientData.lastName || 'Patient',
-        dateOfBirth: patientData.dateOfBirth || '2000-01-01',
-        gender: patientData.gender || 'other',
-        email: patientData.email,
-        phoneNumber: patientData.phoneNumber,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        ...patientData
-      };
-      
-      return mockPatient;
+      throw error;
     }
   },
   
   // Update an existing patient
   async updatePatient(id: string, patientData: Partial<Patient>): Promise<Patient> {
     try {
-      const response = await fetch(`${BASE_URL}/patients/${id}`, {
+      const response = await fetch(`${BASE_URL}/patients?id=${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -192,23 +177,21 @@ const patientService = {
       });
       
       if (!response.ok) {
-        throw new Error('Server responded with an error');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update patient');
       }
       
       return await response.json();
     } catch (error) {
       console.error(`Error updating patient with id ${id}:`, error);
-      
-      // Find the mock patient and update it as fallback
-      const mockPatient = {...mockPatients.find(p => p._id === id) || mockPatients[0], ...patientData};
-      return mockPatient;
+      throw error;
     }
   },
   
   // Delete a patient
   async deletePatient(id: string): Promise<void> {
     try {
-      const response = await fetch(`${BASE_URL}/patients/${id}`, {
+      const response = await fetch(`${BASE_URL}/patients?id=${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -216,11 +199,12 @@ const patientService = {
       });
       
       if (!response.ok) {
-        throw new Error('Server responded with an error');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete patient');
       }
     } catch (error) {
       console.error(`Error deleting patient with id ${id}:`, error);
-      // Just log the error in this case, no fallback needed for delete
+      throw error;
     }
   }
 };

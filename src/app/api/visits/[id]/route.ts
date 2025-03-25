@@ -1,199 +1,205 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import connectToDatabase from '@/lib/mongodb';
 import mongoose from 'mongoose';
+import { z } from 'zod';
 
-// Define the Visit interface
-interface Visit {
-  _id: string;
-  patient: {
-    _id: string;
-    firstName: string;
-    lastName: string;
-    dateOfBirth: string;
-  };
-  scheduledDate: Date;
-  status: 'scheduled' | 'completed' | 'cancelled' | 'no-show';
-  templateId: string;
-  responses: Record<string, any>;
-  provider?: {
-    _id: string;
-    firstName: string;
-    lastName: string;
-  };
-  location?: string;
-  notes?: string;
-  documents: Array<{
-    name: string;
-    url: string;
-    type: string;
-    uploadedAt: Date;
-  }>;
-  createdAt: Date;
-  updatedAt: Date;
-  __v: number;
+// Define a response function to standardize all API responses
+function apiResponse(data: any = null, status = 200, error: string | null = null) {
+  const body: any = {};
+  
+  if (error) {
+    body.success = false;
+    body.error = error;
+  } else {
+    body.success = true;
+    if (data !== null) {
+      body.data = data;
+    }
+  }
+  
+  return NextResponse.json(body, { status });
 }
 
-// Get the Visit model schema from the main visits route
+// Define Visit schema
 const VisitSchema = new mongoose.Schema({
   patient: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Patient', 
+    ref: 'Patient',
     required: true 
   },
-  scheduledDate: { type: Date, required: true },
-  status: { 
-    type: String, 
-    enum: ['scheduled', 'completed', 'cancelled', 'no-show'],
-    default: 'scheduled'
-  },
-  templateId: { type: String, required: true },
-  responses: { type: Object, default: {} },
   provider: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User'
+    ref: 'User',
+    required: false 
   },
-  location: { type: String },
-  notes: { type: String },
-  documents: [{ 
-    name: String,
-    url: String,
+  scheduledDate: { 
+    type: Date, 
+    required: true 
+  },
+  status: { 
+    type: String, 
+    enum: ['scheduled', 'in-progress', 'completed', 'cancelled', 'no-show'],
+    default: 'scheduled' 
+  },
+  visitType: {
     type: String,
-    uploadedAt: Date
-  }],
+    default: 'check-up'
+  },
+  templateId: {
+    type: String,
+    required: false
+  },
+  responses: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
+  healthPlan: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null
+  },
+  notes: String,
+  completedSections: [Number]
 }, { 
   timestamps: true 
 });
 
-// Get the Visit model
+// Get or create the Visit model
 const Visit = mongoose.models.Visit || mongoose.model('Visit', VisitSchema);
 
-// GET: Retrieve a specific visit
-// @ts-ignore - Disable type checking for this function to resolve Vercel build issues
-export async function GET(request, { params }) {
+// Zod schema for validation
+const VisitUpdateSchema = z.object({
+  patient: z.string().optional(),
+  provider: z.string().optional(),
+  scheduledDate: z.string().datetime().optional(),
+  status: z.enum(['scheduled', 'in-progress', 'completed', 'cancelled', 'no-show']).optional(),
+  visitType: z.string().optional(),
+  templateId: z.string().optional(),
+  responses: z.record(z.any()).optional(),
+  healthPlan: z.any().optional(),
+  notes: z.string().optional(),
+  completedSections: z.array(z.number()).optional()
+});
+
+// GET /api/visits/[id] - Fetch a specific visit
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  // Validate ID format
+  if (!params.id || !mongoose.Types.ObjectId.isValid(params.id)) {
+    return apiResponse(null, 400, 'Invalid visit ID format');
+  }
+  
   try {
-    // Check MongoDB connection
-    if (mongoose.connection.readyState !== 1) {
-      throw new Error('MongoDB connection is not ready');
-    }
+    // Connect to the database
+    await connectToDatabase();
     
-    const id = params.id;
-    console.log('Fetching visit with ID:', id);
-    
-    // Validate ID format
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      console.log('Invalid visit ID format:', id);
-      return NextResponse.json(
-        { error: 'Invalid visit ID format' },
-        { status: 400 }
-      );
-    }
-    
-    // Find the visit by ID
-    console.log('Attempting to find visit...');
-    const visit = await Visit.findById(id)
+    // Fetch the visit from the database
+    const visit = await Visit.findById(params.id)
       .populate('patient', 'firstName lastName dateOfBirth')
       .populate('provider', 'firstName lastName')
-      .lean() as Visit;
+      .lean();
     
     if (!visit) {
-      console.log('Visit not found with ID:', id);
-      return NextResponse.json(
-        { error: 'Visit not found' },
-        { status: 404 }
-      );
+      return apiResponse(null, 404, 'Visit not found');
     }
     
-    console.log('Successfully found visit:', visit._id);
-    return NextResponse.json(visit);
-  } catch (error) {
-    console.error('Error getting visit:', error);
-    return NextResponse.json(
-      { error: 'Failed to retrieve visit' },
-      { status: 500 }
-    );
+    return apiResponse(visit);
+  } catch (error: any) {
+    console.error(`Error fetching visit ${params.id}:`, error);
+    
+    // Handle specific MongoDB errors
+    if (error.name === 'CastError') {
+      return apiResponse(null, 400, 'Invalid visit ID format');
+    }
+    
+    return apiResponse(null, 500, 'Failed to fetch visit: ' + (error.message || 'Unknown error'));
   }
 }
 
-// PUT: Update a visit
-// @ts-ignore - Disable type checking for this function to resolve Vercel build issues
-export async function PUT(request, { params }) {
+// PUT /api/visits/[id] - Update a visit
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  // Validate ID format
+  if (!params.id || !mongoose.Types.ObjectId.isValid(params.id)) {
+    return apiResponse(null, 400, 'Invalid visit ID format');
+  }
+  
   try {
-    // Check MongoDB connection
-    if (mongoose.connection.readyState !== 1) {
-      throw new Error('MongoDB connection is not ready');
-    }
+    // Connect to the database
+    await connectToDatabase();
     
-    const id = params.id;
-    const body = await request.json();
+    // Parse request body with validation
+    const body = await request.json().catch(() => ({}));
     
-    // Validate ID format
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { error: 'Invalid visit ID format' },
-        { status: 400 }
+    try {
+      // Validate request data
+      const validatedData = VisitUpdateSchema.parse(body);
+      
+      // Update the visit with validated data
+      const visit = await Visit.findByIdAndUpdate(
+        params.id,
+        { ...validatedData, updatedAt: new Date() },
+        { new: true, runValidators: true }
       );
+      
+      if (!visit) {
+        return apiResponse(null, 404, 'Visit not found');
+      }
+      
+      return apiResponse(visit);
+    } catch (validationError: any) {
+      console.error('Visit update validation error:', validationError);
+      return apiResponse(null, 400, `Validation error: ${validationError.message || 'Invalid data'}`);
+    }
+  } catch (error: any) {
+    console.error(`Error updating visit ${params.id}:`, error);
+    
+    // Handle specific MongoDB errors
+    if (error.name === 'CastError') {
+      return apiResponse(null, 400, 'Invalid visit ID format');
+    } else if (error.name === 'ValidationError') {
+      return apiResponse(null, 400, `Validation error: ${error.message}`);
+    } else if (error.code === 11000) {
+      return apiResponse(null, 409, 'Duplicate key error');
     }
     
-    // Find and update the visit
-    const visit = await Visit.findByIdAndUpdate(
-      id,
-      { $set: body },
-      { new: true, runValidators: true }
-    )
-      .populate('patient', 'firstName lastName dateOfBirth')
-      .populate('provider', 'firstName lastName');
-    
-    if (!visit) {
-      return NextResponse.json(
-        { error: 'Visit not found' },
-        { status: 404 }
-      );
-    }
-    
-    return NextResponse.json(visit);
-  } catch (error) {
-    console.error('Error updating visit:', error);
-    return NextResponse.json(
-      { error: 'Failed to update visit' },
-      { status: 500 }
-    );
+    return apiResponse(null, 500, 'Failed to update visit: ' + (error.message || 'Unknown error'));
   }
 }
 
-// DELETE: Delete a visit
-// @ts-ignore - Disable type checking for this function to resolve Vercel build issues
-export async function DELETE(request, { params }) {
+// DELETE /api/visits/[id] - Delete a visit
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  // Validate ID format
+  if (!params.id || !mongoose.Types.ObjectId.isValid(params.id)) {
+    return apiResponse(null, 400, 'Invalid visit ID format');
+  }
+  
   try {
-    // Check MongoDB connection
-    if (mongoose.connection.readyState !== 1) {
-      throw new Error('MongoDB connection is not ready');
+    // Connect to the database
+    await connectToDatabase();
+    
+    // Delete the visit
+    const result = await Visit.findByIdAndDelete(params.id);
+    
+    if (!result) {
+      return apiResponse(null, 404, 'Visit not found');
     }
     
-    const id = params.id;
+    return apiResponse({ message: 'Visit deleted successfully' });
+  } catch (error: any) {
+    console.error(`Error deleting visit ${params.id}:`, error);
     
-    // Validate ID format
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { error: 'Invalid visit ID format' },
-        { status: 400 }
-      );
+    // Handle specific MongoDB errors
+    if (error.name === 'CastError') {
+      return apiResponse(null, 400, 'Invalid visit ID format');
     }
     
-    // Find and delete the visit
-    const visit = await Visit.findByIdAndDelete(id);
-    
-    if (!visit) {
-      return NextResponse.json(
-        { error: 'Visit not found' },
-        { status: 404 }
-      );
-    }
-    
-    return NextResponse.json({ message: 'Visit deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting visit:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete visit' },
-      { status: 500 }
-    );
+    return apiResponse(null, 500, 'Failed to delete visit: ' + (error.message || 'Unknown error'));
   }
 } 

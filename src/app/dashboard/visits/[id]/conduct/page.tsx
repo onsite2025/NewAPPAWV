@@ -2840,9 +2840,9 @@ export default function ConductVisitPage() {
   
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">{templateName} - {patientName}</h1>
-        <div className="flex space-x-2">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6">
+        <h1 className="text-2xl font-bold mb-3 md:mb-0">{templateName} - {patientName}</h1>
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={handleSaveProgress}
             className="btn-secondary flex items-center"
@@ -2856,53 +2856,24 @@ export default function ConductVisitPage() {
         </div>
       </div>
       
-      {/* Debug section to show question types */}
-      <div className="card mb-6 bg-yellow-50 border-yellow-400">
-        <h3 className="text-lg font-semibold mb-3">Debug Question Types</h3>
-        <div className="overflow-auto max-h-48">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr>
-                <th className="text-left p-2">Question</th>
-                <th className="text-left p-2">Type</th>
-                <th className="text-left p-2">OriginalType</th>
-                <th className="text-left p-2">RenderType</th>
-              </tr>
-            </thead>
-            <tbody>
-              {questionnaireSections.flatMap(section => 
-                section.questions.map((q: any) => (
-                  <tr key={q.id} className="border-b">
-                    <td className="p-2">{q.text}</td>
-                    <td className="p-2">{q.type}</td>
-                    <td className="p-2">{q.originalType || 'N/A'}</td>
-                    <td className="p-2">{q.renderType || 'N/A'}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      
       <div className="card mb-6">
-        <div className="flex items-center mb-4">
-          <div className="w-full bg-gray-200 rounded-full h-2.5">
+        <div className="flex flex-col md:flex-row md:items-center mb-4">
+          <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2 md:mb-0 md:mr-4">
             <div
               className="bg-blue-600 h-2.5 rounded-full"
               style={{ width: `${((completedSections.length) / questionnaireSections.length) * 100}%` }}
             ></div>
           </div>
-          <span className="ml-4 text-sm text-gray-600">
+          <span className="text-sm text-gray-600 whitespace-nowrap">
             {completedSections.length} of {questionnaireSections.length} complete
           </span>
         </div>
         
-        <div className="flex flex-wrap gap-2 border-t pt-4">
+        <div className="flex flex-wrap gap-2 border-t pt-4 overflow-x-auto pb-2">
           {questionnaireSections.map((section, index) => (
             <button
               key={section.id}
-              className={`px-3 py-1.5 rounded-full text-sm ${
+              className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap ${
                 activeSection === index
                   ? 'bg-blue-600 text-white'
                   : completedSections.includes(index)
@@ -2911,7 +2882,7 @@ export default function ConductVisitPage() {
               }`}
               onClick={() => setActiveSection(index)}
             >
-              {index + 1}. {section.title}
+              {index + 1}. {section.title.length > 15 ? section.title.substring(0, 15) + '...' : section.title}
               {completedSections.includes(index) && (
                 <FiCheckCircle className="ml-1 inline text-green-600" />
               )}
@@ -3043,28 +3014,36 @@ export default function ConductVisitPage() {
           </div>
         )}
         
-        <div className="flex justify-between mt-8 pt-6 border-t">
+        <div className="flex flex-col sm:flex-row justify-between mt-8 pt-6 border-t gap-3">
           <button
             onClick={handlePrevSection}
-            className="btn-secondary flex items-center"
+            className="btn-secondary flex items-center justify-center"
             disabled={activeSection === 0}
           >
             <FiChevronLeft className="mr-1" /> Previous
           </button>
           
-          <div>
+          <div className="flex gap-3">
+            <button
+              onClick={handleSaveProgress}
+              className="btn-ghost flex-1 sm:flex-none flex items-center justify-center"
+              disabled={isSaving}
+            >
+              <FiSave className="mr-1" /> Save
+            </button>
+            
             {isLastSection ? (
               <button
                 onClick={handleCompleteVisit}
-                className="btn-success flex items-center"
+                className="btn-primary flex-1 sm:flex-none flex items-center justify-center"
                 disabled={isSaving}
               >
-                <FiCheckCircle className="mr-1" /> {isSaving ? 'Completing...' : 'Complete Visit & Generate Health Plan'}
+                <FiCheckCircle className="mr-1" /> Complete Visit
               </button>
             ) : (
               <button
                 onClick={handleNextSection}
-                className="btn-primary flex items-center"
+                className="btn-primary flex-1 sm:flex-none flex items-center justify-center"
               >
                 Next <FiChevronRight className="ml-1" />
               </button>

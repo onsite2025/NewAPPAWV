@@ -68,10 +68,24 @@ interface IVisitSearchParams {
   endDate?: string;
   sortField?: string;
   sortOrder?: 'asc' | 'desc';
+  returnEmptyOnError?: boolean;
 }
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 const BASE_URL = isDevelopment ? 'http://localhost:8888/.netlify/functions/api' : '/.netlify/functions/api';
+
+// Create a custom error class for better error handling
+class ApiError extends Error {
+  status: number;
+  details?: any;
+  
+  constructor(message: string, status: number = 500, details?: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.details = details;
+  }
+}
 
 const visitService = {
   getVisits: async (params: IVisitSearchParams = {}): Promise<IVisitsResponse> => {
@@ -97,31 +111,107 @@ const visitService = {
       const url = `${BASE_URL}/visits${queryString ? `?${queryString}` : ''}`;
       
       console.log('Fetching visits with URL:', url);
-      const response = await fetch(url);
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch visits');
+      // Add timeout to fetch to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
+      try {
+        const response = await fetch(url, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Unknown server error' }));
+          
+          throw new ApiError(
+            errorData.error || `Failed to fetch visits (HTTP ${response.status})`,
+            response.status,
+            errorData
+          );
+        }
+        
+        const data = await response.json();
+        
+        // Validate response structure
+        if (!data || !Array.isArray(data.visits)) {
+          throw new ApiError('Invalid response format from server', 500);
+        }
+        
+        return data;
+      } catch (error: any) {
+        if (error instanceof ApiError) throw error;
+        
+        if (error.name === 'AbortError') {
+          throw new ApiError('Request timed out. Please try again.', 408);
+        }
+        
+        throw new ApiError(`Failed to fetch visits: ${error.message || 'Unknown error'}`, 500);
       }
-      
-      return await response.json();
     } catch (error) {
       console.error('Error fetching visits:', error);
+      
+      // Return a default empty structure instead of throwing to improve recovery
+      if (params.returnEmptyOnError) {
+        return {
+          visits: [],
+          pagination: {
+            total: 0,
+            page: params.page || 1,
+            limit: params.limit || 10,
+            pages: 0
+          }
+        };
+      }
+      
       throw error;
     }
   },
   
   getVisitById: async (id: string): Promise<IVisitResponse> => {
+    if (!id) {
+      throw new ApiError('Visit ID is required', 400);
+    }
+    
     try {
       console.log(`Fetching visit with ID: ${id}`);
-      const response = await fetch(`${BASE_URL}/visits/${id}`);
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch visit');
+      // Add timeout to fetch
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      
+      try {
+        const response = await fetch(`${BASE_URL}/visits/${id}`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Unknown server error' }));
+          
+          if (response.status === 404) {
+            throw new ApiError('Visit not found', 404, errorData);
+          }
+          
+          throw new ApiError(
+            errorData.error || `Failed to fetch visit (HTTP ${response.status})`,
+            response.status,
+            errorData
+          );
+        }
+        
+        const data = await response.json();
+        return data;
+      } catch (error: any) {
+        if (error instanceof ApiError) throw error;
+        
+        if (error.name === 'AbortError') {
+          throw new ApiError('Request timed out. Please try again.', 408);
+        }
+        
+        throw new ApiError(`Failed to fetch visit: ${error.message || 'Unknown error'}`, 500);
       }
-      
-      return await response.json();
     } catch (error) {
       console.error(`Error fetching visit ${id}:`, error);
       throw error;

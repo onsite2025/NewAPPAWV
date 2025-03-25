@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
-import Template from '@/models/Template';
+import TemplateModel, { ITemplate, TemplateModel as TemplateModelType } from '@/models/Template';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import mongoose from 'mongoose';
@@ -29,7 +29,7 @@ export async function GET(request, { params }) {
     
     try {
       // Try with populate first
-      const template = await Template.findById(id)
+      const template = await TemplateModel.findById(id)
         .populate('createdBy', 'name email')
         .lean();
       
@@ -43,7 +43,7 @@ export async function GET(request, { params }) {
       if (populateError.name === 'MissingSchemaError' && 
           populateError.message.includes('Schema hasn\'t been registered for model "User"')) {
         console.log('User model not registered, fetching template without population');
-        const template = await Template.findById(id).lean();
+        const template = await TemplateModel.findById(id).lean();
         
         if (!template) {
           return NextResponse.json({ error: 'Template not found' }, { status: 404 });
@@ -113,7 +113,7 @@ export async function PUT(request, { params }) {
     });
     
     // Update template
-    const updatedTemplate = await Template.findByIdAndUpdate(
+    const updatedTemplate = await TemplateModel.findByIdAndUpdate(
       id,
       { 
         ...body, 
@@ -157,7 +157,7 @@ export async function DELETE(request, { params }) {
     }
     
     // Soft delete (mark as inactive)
-    const deletedTemplate = await Template.findByIdAndDelete(id);
+    const deletedTemplate = await TemplateModel.findByIdAndDelete(id);
     
     if (!deletedTemplate) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 });

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
-import Template, { ITemplate } from '@/models/Template';
+import TemplateModel, { ITemplate, TemplateModel as TemplateModelType } from '@/models/Template';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import mongoose from 'mongoose';
@@ -32,7 +32,7 @@ export async function GET(request) {
     // Fetch templates from the database
     try {
       // Try with populate first
-      const templates = await Template.find(query)
+      const templates = await TemplateModel.find(query)
         .sort({ updatedAt: -1 })
         .populate('createdBy', 'name email')
         .lean();
@@ -48,7 +48,7 @@ export async function GET(request) {
       if (populateError.name === 'MissingSchemaError' && 
           populateError.message.includes('Schema hasn\'t been registered for model "User"')) {
         console.log('User model not registered, fetching templates without population');
-        const templates = await Template.find(query)
+        const templates = await TemplateModel.find(query)
           .sort({ updatedAt: -1 })
           .lean();
         
@@ -118,7 +118,7 @@ export async function POST(request) {
     });
     
     // Create template with mock user ID for now (will be replaced with actual auth)
-    const template = new Template({
+    const template = new TemplateModel({
       ...body,
       sections: processedSections,
       createdBy: '65f7f8b04115f9f2b10a5c4d', // Mock user ID - replace with actual auth
@@ -192,7 +192,7 @@ export async function PUT(request) {
     });
     
     // Update the template
-    const updatedTemplate = await Template.findByIdAndUpdate(
+    const updatedTemplate = await TemplateModel.findByIdAndUpdate(
       id,
       {
         ...body,
@@ -246,7 +246,7 @@ export async function DELETE(request) {
     }
     
     // Delete the template
-    const deletedTemplate = await Template.findByIdAndDelete(id);
+    const deletedTemplate = await TemplateModel.findByIdAndDelete(id);
     
     if (!deletedTemplate) {
       return NextResponse.json(

@@ -7,7 +7,7 @@ import { GET as getPatients, POST as postPatient } from '../../src/app/api/patie
 import { GET as getVisits, POST as postVisit } from '../../src/app/api/visits/route';
 import { GET as getUsers, POST as postUser } from '../../src/app/api/users/route';
 import { GET as getPractice } from '../../src/app/api/practice/route';
-import { GET as getTemplates } from '../../src/app/api/templates/route';
+import { GET as getTemplates, POST as postTemplate, PUT as putTemplate, DELETE as deleteTemplate } from '../../src/app/api/templates/route';
 
 const createHeaders = (cors: boolean = true): Record<string, string> => {
   const headers: Record<string, string> = {
@@ -108,7 +108,26 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
     } else if (path.startsWith('/practice')) {
       response = await getPractice(request);
     } else if (path.startsWith('/templates')) {
-      response = await getTemplates(request);
+      switch (event.httpMethod) {
+        case 'GET':
+          response = await getTemplates(request);
+          break;
+        case 'POST':
+          response = await postTemplate(request);
+          break;
+        case 'PUT':
+          response = await putTemplate(request);
+          break;
+        case 'DELETE':
+          response = await deleteTemplate(request);
+          break;
+        default:
+          return {
+            statusCode: 405,
+            body: JSON.stringify({ error: 'Method not allowed' }),
+            headers: createHeaders(false)
+          };
+      }
     } else {
       return {
         statusCode: 404,

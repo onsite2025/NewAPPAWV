@@ -1,9 +1,5 @@
-import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
-import TemplateModel, { ITemplate, TemplateModel as TemplateModelType } from '@/models/Template';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import mongoose from 'mongoose';
+import TemplateModel from '@/models/Template';
 import { uuidv4 } from '@/utils/uuid';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -11,12 +7,16 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 // Helper function to create response with CORS headers
 function createResponse(data: any, status: number = 200) {
   const headers = {
+    'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 
-  return NextResponse.json(data, { status, headers });
+  return new Response(JSON.stringify(data), { 
+    status,
+    headers
+  });
 }
 
 // GET: Retrieve all templates
@@ -64,14 +64,6 @@ export async function POST(request: Request) {
   try {
     // Connect to the database
     await connectToDatabase();
-    
-    // Skip authentication in development mode
-    if (!isDevelopment) {
-      const session = await getServerSession(authOptions);
-      if (!session || !session.user) {
-        return createResponse({ error: 'Unauthorized' }, 401);
-      }
-    }
     
     // Parse request body
     const body = await request.json();
@@ -147,14 +139,6 @@ export async function PUT(request: Request) {
     // Connect to the database
     await connectToDatabase();
     
-    // Skip authentication in development mode
-    if (!isDevelopment) {
-      const session = await getServerSession(authOptions);
-      if (!session || !session.user) {
-        return createResponse({ error: 'Unauthorized' }, 401);
-      }
-    }
-    
     // Parse request body and URL
     const body = await request.json();
     const { searchParams } = new URL(request.url);
@@ -227,14 +211,6 @@ export async function DELETE(request: Request) {
   try {
     // Connect to the database
     await connectToDatabase();
-    
-    // Skip authentication in development mode
-    if (!isDevelopment) {
-      const session = await getServerSession(authOptions);
-      if (!session || !session.user) {
-        return createResponse({ error: 'Unauthorized' }, 401);
-      }
-    }
     
     // Parse URL parameters
     const { searchParams } = new URL(request.url);

@@ -223,27 +223,26 @@ export default function ConductVisitPage() {
               const processedSections = templateData.sections.map((section: any) => ({
                 ...section,
                 questions: section.questions.map((question: any) => {
-                  // Determine the correct question type
-                  let questionType = question.type;
-                  if (!questionType) {
-                    // Infer type from options
-                    if (question.options && question.options.length > 0) {
-                      if (question.options.some((opt: any) => opt.selected)) {
-                        questionType = 'checkbox';
-                      } else if (question.options.length === 2 && 
-                               question.options.every((opt: any) => ['yes', 'no'].includes(opt.id.toLowerCase()))) {
-                        questionType = 'radio';
-                      } else {
-                        questionType = 'select';
-                      }
-                    } else if (question.min !== undefined || question.max !== undefined) {
+                  // Map template question types to conduct visit question types
+                  let questionType: Question['type'];
+                  switch (question.type) {
+                    case 'multipleChoice':
+                      questionType = question.options?.length === 2 && 
+                        question.options.every((opt: any) => ['yes', 'no'].includes(opt.value.toLowerCase()))
+                        ? 'radio'
+                        : 'select';
+                      break;
+                    case 'numeric':
                       questionType = 'range';
-                    } else if (question.text?.toLowerCase().includes('describe') || 
-                             question.text?.toLowerCase().includes('explain')) {
-                      questionType = 'textarea';
-                    } else {
+                      break;
+                    case 'boolean':
+                      questionType = 'radio';
+                      break;
+                    case 'date':
                       questionType = 'text';
-                    }
+                      break;
+                    default:
+                      questionType = 'text';
                   }
 
                   return {
@@ -251,8 +250,8 @@ export default function ConductVisitPage() {
                     id: question.id || question._id || uuidv4(),
                     type: questionType,
                     options: question.options?.map((option: any) => ({
-                      id: option.id || option._id || uuidv4(),
-                      text: option.text || option.label || '',
+                      id: option.value,
+                      text: option.label,
                       recommendation: option.recommendation || '',
                       selected: option.selected || false
                     })) || []

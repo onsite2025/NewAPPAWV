@@ -54,14 +54,19 @@ export default function VisitDetailPage() {
   }, [visitId]);
 
   const handleDelete = async () => {
-    if (window.confirm('Are you sure you want to cancel this visit? This action cannot be undone.')) {
+    // Change confirmation message based on visit status
+    const confirmMessage = visit.status === 'completed' 
+      ? 'Are you sure you want to delete this completed visit? All data including assessment results and health plan will be permanently deleted.'
+      : 'Are you sure you want to cancel this visit? This action cannot be undone.';
+      
+    if (window.confirm(confirmMessage)) {
       try {
         setIsDeleting(true);
         await visitService.deleteVisit(visitId);
         router.push('/dashboard/visits');
       } catch (err) {
         console.error('Error deleting visit:', err);
-        setError('Failed to delete visit');
+        setError(`Failed to ${visit.status === 'completed' ? 'delete' : 'cancel'} visit`);
         setIsDeleting(false);
       }
     }
@@ -188,6 +193,15 @@ export default function VisitDetailPage() {
                     disabled={isDeleting}
                   >
                     {isDeleting ? 'Canceling...' : 'Cancel Visit'}
+                  </button>
+                )}
+                {visit.status === 'completed' && (
+                  <button
+                    onClick={handleDelete}
+                    className="btn-danger flex items-center"
+                    disabled={isDeleting}
+                  >
+                    <FiTrash2 className="mr-1" /> {isDeleting ? 'Deleting...' : 'Delete Visit'}
                   </button>
                 )}
               </div>

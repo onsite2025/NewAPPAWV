@@ -83,7 +83,18 @@ async function handleResponse(response: Response) {
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
   }
-  return response.json();
+  
+  // Parse the JSON response
+  const data = await response.json();
+  
+  // Handle potential nested response structure (common in Netlify Functions)
+  // If the response has a success flag and a data property, return the data
+  if (data && typeof data === 'object' && data.success === true && data.data) {
+    console.log('Found patient data in nested structure');
+    return data.data;
+  }
+  
+  return data;
 }
 
 // Patient service for client-side API calls
@@ -111,7 +122,12 @@ const patientService = {
         cache: 'no-store'
       });
       
-      return await handleResponse(response);
+      const data = await handleResponse(response);
+      
+      // Log patient API response for debugging
+      console.log('Patients API response:', data);
+      
+      return data;
     } catch (error) {
       console.error('Error fetching patients:', error);
       throw error;
@@ -121,15 +137,66 @@ const patientService = {
   // Get a specific patient by ID
   async getPatientById(id: string): Promise<Patient> {
     try {
-      const response = await fetch(`${BASE_URL}/patients/${id}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        cache: 'no-store'
-      });
+      console.log(`Fetching patient with ID: ${id}`);
       
-      return await handleResponse(response);
+      // Add timeout to fetch to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
+      try {
+        const response = await fetch(`${BASE_URL}/patients/${id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store'
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Unknown server error' }));
+          
+          if (response.status === 404) {
+            throw new Error('Not found');
+          }
+          
+          throw new Error(
+            errorData.error || `Failed to fetch patient (HTTP ${response.status})`
+          );
+        }
+        
+        let data;
+        try {
+          data = await response.json();
+          // Log the complete data structure to help debug
+          console.log('Raw patient data from API:', JSON.stringify(data));
+        } catch (parseError) {
+          console.error('Error parsing JSON response:', parseError);
+          throw new Error('Invalid response format from server');
+        }
+        
+        // Handle potential nested response structure (common in Netlify Functions)
+        if (data && typeof data === 'object' && data.success === true && data.data) {
+          console.log('Found patient data in nested structure');
+          data = data.data;
+        }
+        
+        // Ensure the patient data has an ID
+        if (!data || !data._id) {
+          console.error('Invalid patient data - missing ID:', data);
+          throw new Error('Patient data is incomplete or invalid');
+        }
+        
+        return data;
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          throw new Error('Request timed out. Please try again.');
+        }
+        
+        throw error;
+      }
     } catch (error) {
       console.error(`Error fetching patient with id ${id}:`, error);
       throw error;
@@ -147,7 +214,32 @@ const patientService = {
         body: JSON.stringify(patientData),
       });
       
-      return await handleResponse(response);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown server error' }));
+        throw new Error(errorData?.error || `Failed to create patient (HTTP ${response.status})`);
+      }
+      
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('Error parsing JSON response:', parseError);
+        throw new Error('Invalid response format from server');
+      }
+      
+      // Handle potential nested response structure
+      if (data && typeof data === 'object' && data.success === true && data.data) {
+        console.log('Found patient data in nested structure');
+        data = data.data;
+      }
+      
+      // Ensure the new patient has an ID
+      if (!data || !data._id) {
+        console.error('Invalid patient data after creation - missing ID:', data);
+        throw new Error('Patient creation returned incomplete data');
+      }
+      
+      return data;
     } catch (error) {
       console.error('Error creating patient:', error);
       throw error;
@@ -165,7 +257,26 @@ const patientService = {
         body: JSON.stringify(patientData),
       });
       
-      return await handleResponse(response);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown server error' }));
+        throw new Error(errorData?.error || `Failed to update patient (HTTP ${response.status})`);
+      }
+      
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('Error parsing JSON response:', parseError);
+        throw new Error('Invalid response format from server');
+      }
+      
+      // Handle potential nested response structure
+      if (data && typeof data === 'object' && data.success === true && data.data) {
+        console.log('Found patient data in nested structure');
+        data = data.data;
+      }
+      
+      return data;
     } catch (error) {
       console.error(`Error updating patient with id ${id}:`, error);
       throw error;
@@ -182,7 +293,21 @@ const patientService = {
         },
       });
       
-      await handleResponse(response);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown server error' }));
+        throw new Error(errorData?.error || `Failed to delete patient (HTTP ${response.status})`);
+      }
+      
+      // Check if there's a response body to parse
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          await response.json(); // We don't need the data, just checking it can be parsed
+        } catch (parseError) {
+          console.warn('Empty or invalid JSON response on delete:', parseError);
+          // This might be fine - some APIs return empty bodies on DELETE
+        }
+      }
     } catch (error) {
       console.error(`Error deleting patient with id ${id}:`, error);
       throw error;

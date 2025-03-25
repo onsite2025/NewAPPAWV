@@ -283,7 +283,8 @@ interface TemplateQuestion extends BaseQuestion {
 
 interface ProcessedQuestion extends BaseQuestion {
   type: AppQuestionType;
-  originalType?: TemplateQuestionType; // Add original template type
+  originalType?: TemplateQuestionType; // Original template type
+  renderType?: string; // Specific type to use for rendering UI elements
   conditional?: {
     questionId: string;
     value?: string | number | boolean;
@@ -322,6 +323,8 @@ const isTemplateType = (templateType: TemplateQuestionType, processedType: AppQu
 
 // Helper function to map template question types to our question types
 const mapQuestionType = (templateType: TemplateQuestionType): AppQuestionType => {
+  console.log('Mapping template type:', templateType);
+  
   if (templateType === 'text' || templateType === 'textarea') {
     return 'text';
   }
@@ -352,6 +355,8 @@ const mapQuestionType = (templateType: TemplateQuestionType): AppQuestionType =>
   if (templateType === 'cageScreening') {
     return 'cageScreening';
   }
+  
+  console.log('Defaulting to text for unknown type:', templateType);
   return 'text';
 };
 
@@ -594,12 +599,16 @@ export default function ConductVisitPage() {
                   // Create a deep copy of the question to avoid mutating the original
                   const processedType = mapQuestionType(question.type);
                   
+                  // Print question type for debugging
+                  console.log('Processing question:', question.text, 'type:', question.type, 'mapped to:', processedType);
+                  
                   const processedQuestion: ProcessedQuestion = {
                     id: question.id || question._id || '',
                     text: question.text,
                     required: question.required || false,
                     type: processedType,
                     originalType: question.type, // Store the original template type
+                    renderType: question.type, // Store explicit render type - use the original template type for UI
                     includeRecommendation: question.includeRecommendation || false,
                     defaultRecommendation: question.defaultRecommendation || '',
                     
@@ -1403,32 +1412,35 @@ export default function ConductVisitPage() {
   
   // Render form inputs based on question type
   const renderQuestion = (question: ProcessedQuestion | any) => {
-    // Determine the actual input type to render based on question type, original type, and config
-    let inputType: string;
+    // Force the proper input type based on the question structure, not relying on types
     
-    // First try to use the original type if available
-    if (question.originalType) {
-      inputType = question.originalType;
-    }
-    // Otherwise fall back to the config-based detection
-    else if (question.type === 'multipleChoice') {
+    // Always use originalType or renderType if available as our first choice
+    let inputType = question.renderType || question.originalType || question.type;
+    
+    // If we suspect this is a multiple choice question
+    if (question.options && question.options.length > 0) {
+      // Check if multiple selections are allowed (checkbox)
       if (question.config?.multiple === true) {
         inputType = 'checkbox';
-      } else {
-        // Check if the question has options - if so, use radio as default
-        inputType = question.options && question.options.length > 0 ? 'radio' : 'select';
+      } 
+      // Check if it's a dropdown (select)
+      else if (question.options.length > 4 || inputType === 'select') {
+        inputType = 'select';
+      }
+      // Default to radio buttons for fewer options
+      else {
+        inputType = 'radio';
       }
     }
-    // Handle text questions by looking at config
-    else if (question.type === 'text' && question.config?.multiline === true) {
+    
+    // Handle textarea
+    if (question.config?.multiline === true) {
       inputType = 'textarea';
     }
-    // Otherwise use the current type
-    else {
-      inputType = question.type;
-    }
     
-    // Map template types to appropriate input types
+    console.log('Final inputType:', inputType, 'for question:', question.text);
+    
+    // Force-map to correct input types based on hard-coded conditions to ensure proper rendering
     switch (inputType) {
       case 'text':
         return (
@@ -1510,21 +1522,21 @@ export default function ConductVisitPage() {
           </div>
         );
       case 'numeric':
-      case 'range':
-        return (
-          <input
-            type="number"
-            name={question.id}
-            value={responses[question.id] || ''}
-            onChange={(e) => handleInputChange(question, e)}
-            required={question.required}
-            min={question.config?.min}
-            max={question.config?.max}
-            step={question.config?.step || 1}
-            className="w-full px-3 py-2 border rounded-md"
-            placeholder="Enter a number"
-          />
-        );
+        case 'range':
+          return (
+            <input
+              type="number"
+              name={question.id}
+              value={responses[question.id] || ''}
+              onChange={(e) => handleInputChange(question, e)}
+              required={question.required}
+              min={question.config?.min}
+              max={question.config?.max}
+              step={question.config?.step || 1}
+              className="w-full px-3 py-2 border rounded-md"
+              placeholder="Enter a number"
+            />
+          );
       case 'date':
         return (
           <input
@@ -1624,7 +1636,7 @@ export default function ConductVisitPage() {
                       BMI: {bmi.value.toFixed(1)} ({bmi.category})
                     </p>
                   );
-                })()}
+        })()}
               </div>
             )}
           </div>
@@ -1872,7 +1884,7 @@ export default function ConductVisitPage() {
                   // Store cognitive score in responses for health plan generation
                   if (!responses[question.id]) {
                     setResponses(prev => ({
-                      ...prev,
+                  ...prev,
                       [question.id]: score,
                       [`${question.id}_risk`]: risk
                     }));
@@ -2043,10 +2055,10 @@ export default function ConductVisitPage() {
                     </p>
                   );
                 })()}
-              </div>
-            )}
           </div>
-        );
+        )}
+      </div>
+    );
       default:
         return null; // Return null for unknown question types
     }
@@ -2098,6 +2110,35 @@ export default function ConductVisitPage() {
           <Link href={`/dashboard/visits/${visitId}`} className="btn-secondary">
             Exit
           </Link>
+        </div>
+      </div>
+      
+      {/* Debug section to show question types */}
+      <div className="card mb-6 bg-yellow-50 border-yellow-400">
+        <h3 className="text-lg font-semibold mb-3">Debug Question Types</h3>
+        <div className="overflow-auto max-h-48">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr>
+                <th className="text-left p-2">Question</th>
+                <th className="text-left p-2">Type</th>
+                <th className="text-left p-2">OriginalType</th>
+                <th className="text-left p-2">RenderType</th>
+              </tr>
+            </thead>
+            <tbody>
+              {questionnaireSections.flatMap(section => 
+                section.questions.map((q: any) => (
+                  <tr key={q.id} className="border-b">
+                    <td className="p-2">{q.text}</td>
+                    <td className="p-2">{q.type}</td>
+                    <td className="p-2">{q.originalType || 'N/A'}</td>
+                    <td className="p-2">{q.renderType || 'N/A'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
       

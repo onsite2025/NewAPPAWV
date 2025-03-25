@@ -1,5 +1,6 @@
 import { Handler, HandlerEvent, HandlerContext, HandlerResponse } from '@netlify/functions';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import mongoose from 'mongoose';
 import { connectToDatabase } from '../../src/lib/mongodb';
 
 // Import your API route handlers
@@ -148,10 +149,12 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
       
       // Handle the request
       const response = await handler(request);
+      
+      // Convert Response to Netlify function response
       const responseData = await response.json();
       
       return {
-        statusCode: response.status || 200,
+        statusCode: response.status,
         body: JSON.stringify(responseData),
         headers: createHeaders()
       };

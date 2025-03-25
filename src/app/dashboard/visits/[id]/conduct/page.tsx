@@ -141,7 +141,46 @@ interface QuestionnaireSection {
   id: string;
   title: string;
   description: string;
-  questions: ProcessedQuestion[];
+  questions: (ProcessedQuestion | {
+    id: string;
+    text: string;
+    type: TemplateQuestionType | AppQuestionType;
+    required: boolean;
+    options?: {
+      id?: string;
+      text?: string;
+      value?: string;
+      label?: string;
+      recommendation?: string;
+      score?: number;
+    }[];
+    includeRecommendation?: boolean;
+    defaultRecommendation?: string;
+    min?: number;
+    max?: number;
+    config?: {
+      min?: number;
+      max?: number;
+      step?: number;
+      units?: string;
+      multiline?: boolean;
+      multiple?: boolean;
+      trueLabel?: string;
+      falseLabel?: string;
+      subtype?: string;
+      thresholds?: {
+        min: number;
+        max: number;
+        warningThreshold: number;
+      };
+    };
+    conditional?: {
+      questionId: string;
+      value?: string | number | boolean;
+      notValue?: string | number | boolean;
+      operator?: 'equals' | 'notEquals' | 'greaterThan' | 'lessThan';
+    };
+  })[];
 }
 
 // Add a specific type for healthPlanRecommendation
@@ -202,8 +241,10 @@ interface BaseQuestion {
   text: string;
   required: boolean;
   options?: {
-    value: string;
-    label: string;
+    value?: string;
+    label?: string;
+    id?: string;
+    text?: string;
     recommendation?: string;
     score?: number;
     selected?: boolean;
@@ -230,16 +271,6 @@ interface BaseQuestion {
 
 interface TemplateQuestion extends BaseQuestion {
   type: TemplateQuestionType;
-  options?: {
-    id?: string;
-    text?: string;
-    value?: string;
-    label?: string;
-    recommendation?: string;
-    score?: number;
-  }[];
-  min?: number;
-  max?: number;
   conditionalLogic?: {
     dependsOn: string;
     showWhen: {
@@ -253,8 +284,9 @@ interface ProcessedQuestion extends BaseQuestion {
   type: AppQuestionType;
   conditional?: {
     questionId: string;
-    value: string | number | boolean;
-    operator: 'equals' | 'notEquals' | 'greaterThan' | 'lessThan';
+    value?: string | number | boolean;
+    notValue?: string | number | boolean;
+    operator?: 'equals' | 'notEquals' | 'greaterThan' | 'lessThan';
   };
 }
 
@@ -320,6 +352,30 @@ const mapQuestionType = (templateType: TemplateQuestionType): AppQuestionType =>
   }
   return 'text';
 };
+
+// Helper function to safely get option value
+function getOptionValue(option: any): string {
+  return option.value || option.id || '';
+}
+
+// Helper function to safely get option label
+function getOptionLabel(option: any): string {
+  return option.label || option.text || '';
+}
+
+// Type guard to check if a question is a ProcessedQuestion
+function isProcessedQuestion(question: any): question is ProcessedQuestion {
+  return typeof question === 'object' && 
+         question !== null && 
+         ['text', 'multipleChoice', 'numeric', 'date', 'boolean', 'bmi', 'vitalSigns', 'phq2', 'cognitiveAssessment', 'cageScreening'].includes(question.type);
+}
+
+// Type guard to check if a question is a template question
+function isTemplateQuestion(question: any): question is TemplateQuestion {
+  return typeof question === 'object' && 
+         question !== null && 
+         ['text', 'textarea', 'select', 'radio', 'checkbox', 'numeric', 'range', 'date', 'boolean', 'bmi', 'vitalSigns', 'phq2', 'cognitiveAssessment', 'cageScreening'].includes(question.type);
+}
 
 // AWV questionnaire sections
 const questionnaireSections: QuestionnaireSection[] = [
@@ -666,7 +722,7 @@ export default function ConductVisitPage() {
   }, [visitId]);
   
   const handleInputChange = (
-    question: ProcessedQuestion, 
+    question: ProcessedQuestion | any, 
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value, type } = e.target;
@@ -691,10 +747,11 @@ export default function ConductVisitPage() {
 
     // Auto-set recommendations based on selection
     if (question.includeRecommendation) {
-      if (question.type === 'multipleChoice' && question.options) {
-        const selectedOption = question.options.find(opt => {
-          const optValue = 'value' in opt ? opt.value : opt.id;
-          return optValue === newValue;
+      const questionType = isProcessedQuestion(question) ? question.type : mapQuestionType(question.type as TemplateQuestionType);
+      
+      if (questionType === 'multipleChoice' && question.options) {
+        const selectedOption = question.options.find((opt: any) => {
+          return getOptionValue(opt) === newValue;
         });
         
         if (selectedOption?.recommendation) {
@@ -703,14 +760,13 @@ export default function ConductVisitPage() {
             [name]: selectedOption.recommendation || ''
           }));
         }
-      } else if (question.type === 'multipleChoice' && question.config?.multiple && Array.isArray(newValue)) {
-        const selectedOptions = question.options?.filter(opt => {
-          const optValue = 'value' in opt ? opt.value : opt.id;
-          return newValue.includes(optValue);
+      } else if (questionType === 'multipleChoice' && question.config?.multiple && Array.isArray(newValue)) {
+        const selectedOptions = question.options?.filter((opt: any) => {
+          return newValue.includes(getOptionValue(opt));
         }) || [];
         
         const recommendations = selectedOptions
-          .map(opt => opt.recommendation)
+          .map((opt: any) => opt.recommendation)
           .filter(Boolean);
           
         if (recommendations.length > 0) {
@@ -719,7 +775,7 @@ export default function ConductVisitPage() {
             [name]: recommendations.join('\n')
           }));
         }
-      } else if (question.type === 'numeric') {
+      } else if (questionType === 'numeric') {
         const numValue = parseInt(newValue);
         if (question.defaultRecommendation) {
           const recommendation = question.defaultRecommendation.replace('{value}', numValue.toString());
@@ -913,12 +969,12 @@ export default function ConductVisitPage() {
         case 'phq2':
         case 'cognitiveAssessment': 
         case 'cageScreening':
-          // Validate required questions
-          if (question.required && 
-              (responses[question.id] === undefined || 
-               responses[question.id] === '' || 
+      // Validate required questions
+      if (question.required && 
+          (responses[question.id] === undefined || 
+           responses[question.id] === '' || 
                (Array.isArray(responses[question.id]) && responses[question.id].length === 0))) {
-            errors.push(`Question "${question.text}" is required.`);
+        errors.push(`Question "${question.text}" is required.`);
           }
           
           // Additional validations for complex question types
@@ -1320,8 +1376,10 @@ export default function ConductVisitPage() {
   };
   
   // Render form inputs based on question type
-  const renderQuestion = (question: ProcessedQuestion) => {
-    switch (question.type) {
+  const renderQuestion = (question: ProcessedQuestion | any) => {
+    const questionType = isProcessedQuestion(question) ? question.type : mapQuestionType(question.type as TemplateQuestionType);
+    
+    switch (questionType) {
       case 'text':
         return (
           <input
@@ -1337,22 +1395,22 @@ export default function ConductVisitPage() {
       case 'multipleChoice':
         return (
           <div className="space-y-2">
-            {question.options?.map((option) => (
-              <label key={option.value} className="flex items-center space-x-2">
+            {question.options?.map((option: any) => (
+              <label key={getOptionValue(option)} className="flex items-center space-x-2">
                 <input
                   type={question.config?.multiple ? 'checkbox' : 'radio'}
                   name={question.id}
-                  value={option.value}
+                  value={getOptionValue(option)}
                   checked={
                     question.config?.multiple
-                      ? (responses[question.id] || []).includes(option.value)
-                      : responses[question.id] === option.value
+                      ? (responses[question.id] || []).includes(getOptionValue(option))
+                      : responses[question.id] === getOptionValue(option)
                   }
                   onChange={(e) => handleInputChange(question, e)}
                   required={question.required}
                   className="form-radio"
                 />
-                <span>{option.label}</span>
+                <span>{getOptionLabel(option)}</span>
               </label>
             ))}
           </div>
@@ -1767,7 +1825,7 @@ export default function ConductVisitPage() {
                   />
                   <span>No</span>
                 </label>
-              </div>
+            </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -1890,10 +1948,10 @@ export default function ConductVisitPage() {
                     </p>
                   );
                 })()}
-              </div>
-            )}
           </div>
-        );
+        )}
+      </div>
+    );
       default:
         return (
           <input
@@ -2088,4 +2146,4 @@ export default function ConductVisitPage() {
       </div>
     </div>
   );
-}
+} 

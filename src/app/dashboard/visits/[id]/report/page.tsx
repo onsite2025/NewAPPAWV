@@ -579,7 +579,7 @@ export default function VisitReportPage() {
               {template.sections.map((section: any) => {
                 // Check if there are any responses for this section
                 const sectionQuestionIds = section.questions.map((q: any) => q.id);
-                const sectionHasResponses = sectionQuestionIds.some(id => visit.responses[id] !== undefined);
+                const sectionHasResponses = sectionQuestionIds.some((id: string) => visit.responses[id] !== undefined);
                 
                 if (!sectionHasResponses) {
                   return null;

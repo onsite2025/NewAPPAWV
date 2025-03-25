@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, model, Model } from 'mongoose';
 
 export interface IOption {
   value: string;
@@ -52,7 +52,7 @@ export interface ITemplateResponse extends ITemplateBase {
 const OptionSchema = new Schema<IOption>({
   value: { type: String, required: true },
   label: { type: String, required: true }
-});
+}, { _id: false });
 
 // Define the schema for conditional logic
 const ConditionalLogicSchema = new Schema({
@@ -98,21 +98,23 @@ const TemplateSchema = new Schema<ITemplate>({
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: false },
   version: { type: Number, default: 1 }
 }, { 
-  timestamps: true, 
-  versionKey: false 
+  timestamps: true,
+  versionKey: false,
+  collection: 'templates' // Explicitly set collection name
+});
+
+// Add any pre-save middleware if needed
+TemplateSchema.pre('save', function(next) {
+  if (!this.version) {
+    this.version = 1;
+  }
+  next();
 });
 
 // Define the model type
-export type TemplateModel = mongoose.Model<ITemplate>;
+export type TemplateModel = Model<ITemplate>;
 
-// Create and export the model only on the server side
-let TemplateModel: TemplateModel;
-try {
-  // Try to get existing model first
-  TemplateModel = mongoose.model<ITemplate>('Template');
-} catch {
-  // If model doesn't exist, create it
-  TemplateModel = mongoose.model<ITemplate>('Template', TemplateSchema);
-}
+// Create and export the model
+const TemplateModel = (mongoose.models.Template as TemplateModel) || model<ITemplate>('Template', TemplateSchema);
 
 export default TemplateModel; 

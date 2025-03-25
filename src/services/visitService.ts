@@ -183,7 +183,10 @@ const visitService = {
       
       try {
         const response = await fetch(`${BASE_URL}/visits/${id}`, {
-          signal: controller.signal
+          signal: controller.signal,
+          headers: {
+            'Cache-Control': 'no-store'
+          }
         });
         clearTimeout(timeoutId);
         
@@ -201,7 +204,40 @@ const visitService = {
           );
         }
         
-        const data = await response.json();
+        let data;
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          console.error('Error parsing JSON response:', parseError);
+          throw new ApiError('Invalid response format from server', 500);
+        }
+        
+        // Validate essential properties to ensure we have valid data
+        if (!data || typeof data !== 'object') {
+          throw new ApiError('Empty or invalid response data', 500);
+        }
+        
+        if (!data._id) {
+          console.error('Invalid visit data - missing ID:', data);
+          throw new ApiError('Visit data is incomplete or invalid', 500);
+        }
+        
+        // Ensure patient data is valid
+        if (!data.patient || typeof data.patient !== 'object') {
+          console.error('Invalid patient data in visit:', data);
+          data.patient = {
+            _id: 'unknown',
+            firstName: 'Unknown',
+            lastName: 'Patient',
+            dateOfBirth: ''
+          };
+        }
+        
+        // Ensure responses object exists
+        if (!data.responses) {
+          data.responses = {};
+        }
+        
         return data;
       } catch (error: any) {
         if (error instanceof ApiError) throw error;

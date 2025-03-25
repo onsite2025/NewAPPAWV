@@ -10,6 +10,7 @@ import { FiChevronLeft, FiChevronRight, FiSave, FiCheckCircle, FiAlertCircle } f
 import visitService from '@/services/visitService';
 import templateService from '@/services/templateService';
 import { v4 as uuidv4 } from 'uuid';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 // Types and interfaces
 
@@ -557,7 +558,7 @@ const calculateCognitiveScore = (
   return score;
 };
 
-export default function ConductVisitPage() {
+function ConductVisitPage() {
   const params = useParams();
   const router = useRouter();
   const visitId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
@@ -577,164 +578,152 @@ export default function ConductVisitPage() {
   
   useEffect(() => {
     const fetchVisitAndTemplate = async () => {
+      setIsLoading(true);
+      setError(null);
+      
       try {
-        setIsLoading(true);
-        
         // Fetch visit data
-        const visitData = await visitService.getVisitById(visitId);
-        setVisit(visitData);
-        
-        // Set patient name
-        if (visitData.patient) {
-          const patient = visitData.patient;
-          setPatientName(`${patient.firstName || ''} ${patient.lastName || ''}`.trim());
+        let visitData;
+        try {
+          visitData = await visitService.getVisitById(visitId);
+          console.log('Visit data loaded:', visitData);
+          
+          if (!visitData) {
+            throw new Error('No visit data received');
+          }
+          
+          setVisit(visitData);
+        } catch (visitError: any) {
+          console.error('Error fetching visit:', visitError);
+          setError(visitError.message || 'Failed to load visit data');
+          setIsLoading(false);
+          return;
         }
         
-        // Load progress if available
+        // Initialize visit if needed
+        if (visitData.status === 'scheduled') {
+          try {
+            const updatedVisit = await visitService.updateVisit(visitId, {
+              status: 'in-progress'
+            });
+            setVisit(updatedVisit);
+          } catch (updateError: any) {
+            console.warn('Error updating visit status:', updateError);
+            // Continue even if status update fails
+          }
+        }
+        
+        // Exit early if no template ID
+        if (!visitData.templateId) {
+          setError('This visit does not have an assessment template assigned');
+          setIsLoading(false);
+          return;
+        }
+        
+        // Fetch template data
+        try {
+          const templateData = await templateService.getTemplateById(visitData.templateId);
+          console.log('Template data loaded:', templateData);
+          
+          if (!templateData) {
+            throw new Error('No template data received');
+          }
+          
+          setTemplateName(templateData.name || 'Visit Assessment');
+          
+          // Process the template data
+          if (templateData.sections) {
+            // Create processed sections with properly typed questions
+            const processedSections: QuestionnaireSection[] = templateData.sections.map((section: any) => {
+              // Ensure valid section structure
+              if (!section || !section.questions || !Array.isArray(section.questions)) {
+                return {
+                  id: section?.id || uuidv4(),
+                  title: section?.title || 'Unknown Section',
+                  description: section?.description || '',
+                  questions: []
+                };
+              }
+              
+              // Process questions from template format to application format
+              const processedQuestions = section.questions.map((q: any) => {
+                // Ensure we have a valid question object
+                if (!q || typeof q !== 'object') {
+                  return {
+                    id: uuidv4(),
+                    text: 'Invalid question data',
+                    type: 'text' as AppQuestionType,
+                    required: false
+                  };
+                }
+                
+                // Convert template question type to app question type
+                let processedType: AppQuestionType = 'text';
+                if (q.type) {
+                  processedType = mapQuestionType(q.type);
+                }
+                
+                // Ensure question has an ID
+                const questionId = q.id || uuidv4();
+                
+                // Convert to ProcessedQuestion format
+                return {
+                  ...q,
+                  id: questionId,
+                  type: processedType,
+                  originalType: q.type,
+                  text: q.text || 'Untitled question',
+                  required: q.required === true,
+                  options: Array.isArray(q.options) ? q.options.map((opt: any) => ({
+                    ...opt,
+                    id: opt.id || uuidv4(),
+                    value: getOptionValue(opt),
+                    label: getOptionLabel(opt),
+                  })) : []
+                };
+              });
+              
+              return {
+                ...section,
+                id: section.id || uuidv4(),
+                title: section.title || 'Untitled Section',
+                description: section.description || '',
+                questions: processedQuestions
+              };
+            });
+            
+            setQuestionnaireSections(processedSections);
+          } else {
+            setQuestionnaireSections([]);
+            setError('The template has no assessment sections');
+          }
+        } catch (templateError: any) {
+          console.error('Error fetching template:', templateError);
+          setError(templateError.message || 'Failed to load assessment template');
+          setQuestionnaireSections([]);
+        }
+        
+        // Load existing responses if any
         if (visitData.responses) {
           setResponses(visitData.responses);
         }
         
-        // Fetch template if available
-        if (visitData.templateId) {
-          try {
-            const templateData = await templateService.getTemplateById(visitData.templateId);
-            if (templateData) {
-              setTemplateName(templateData.name || 'Visit Assessment');
-              
-              // Process template sections and questions
-              const processedSections = templateData.sections.map((section: any) => {
-                // Process each question in the section
-                const processedQuestions = section.questions.map((question: TemplateQuestion) => {
-                  // Create a deep copy of the question to avoid mutating the original
-                  const processedType = mapQuestionType(question.type);
-                  
-                  // Print question type for debugging
-                  console.log('Processing question:', question.text, 'type:', question.type, 'mapped to:', processedType);
-                  
-                  const processedQuestion: ProcessedQuestion = {
-                    id: question.id || question._id || '',
-                    text: question.text,
-                    required: question.required || false,
-                    type: processedType,
-                    originalType: question.type, // Store the original template type
-                    renderType: question.type, // Store explicit render type - use the original template type for UI
-                    includeRecommendation: question.includeRecommendation || false,
-                    defaultRecommendation: question.defaultRecommendation || '',
-                    
-                    // Process options if present
-                    options: question.options 
-                      ? question.options.map((option) => ({
-                          value: option.value,
-                          label: option.label,
-                          recommendation: option.recommendation || '',
-                          selected: option.selected || false,
-                          score: option.score || 0
-                        }))
-                      : [],
-                      
-                    // Map conditional logic
-                    conditional: question.conditionalLogic
-                      ? {
-                          questionId: question.conditionalLogic.dependsOn,
-                          value: question.conditionalLogic.showWhen.value,
-                          operator: question.conditionalLogic.showWhen.operator
-                        }
-                      : undefined,
-                    
-                    // Initialize config with empty object
-                    config: {}
-                  };
-                  
-                  // Add type-specific configuration based on the mapped type
-                  const templateType = question.type;
-                  
-                  switch (processedType) {
-                    case 'text':
-                      processedQuestion.config = {
-                        multiline: templateType === 'textarea'
-                      };
-                      break;
-                    
-                    case 'multipleChoice':
-                      processedQuestion.config = {
-                        multiple: templateType === 'checkbox'
-                      };
-                      break;
-                    
-                    case 'numeric':
-                      processedQuestion.config = {
-                        min: question.config?.min,
-                        max: question.config?.max,
-                        step: question.config?.step || 1,
-                        units: question.config?.units
-                      };
-                      break;
-                    
-                    case 'date':
-                      processedQuestion.config = {
-                        min: question.config?.min,
-                        max: question.config?.max
-                      };
-                      break;
-                    
-                    case 'boolean':
-                      processedQuestion.config = {
-                        trueLabel: question.config?.trueLabel || 'Yes',
-                        falseLabel: question.config?.falseLabel || 'No'
-                      };
-                      break;
-                    
-                    case 'bmi':
-                      processedQuestion.config = {
-                        units: (question.config?.units as 'metric' | 'imperial') || 'metric'
-                      };
-                      break;
-                    
-                    case 'vitalSigns':
-                      processedQuestion.config = {
-                        subtype: question.config?.subtype || 'basic'
-                      };
-                      break;
-                    
-                    case 'phq2':
-                    case 'cognitiveAssessment':
-                    case 'cageScreening':
-                      processedQuestion.config = {
-                        thresholds: {
-                          min: question.config?.thresholds?.min || 0,
-                          max: question.config?.thresholds?.max || 
-                            (processedType === 'phq2' ? 6 : processedType === 'cognitiveAssessment' ? 30 : 4),
-                          warningThreshold: question.config?.thresholds?.warningThreshold || 
-                            (processedType === 'phq2' ? 3 : processedType === 'cognitiveAssessment' ? 24 : 2)
-                        }
-                      };
-                      break;
-                  }
-                  
-                  return processedQuestion;
-                });
-                
-                return {
-                  id: section.id || section._id || '',
-                  title: section.title || 'Untitled Section',
-                  description: section.description || '',
-                  questions: processedQuestions
-                } as QuestionnaireSection;
-              });
-              
-              setQuestionnaireSections(processedSections);
+        // Initialize currentSection to the first uncompleted section
+        if (visitData.completedSections && Array.isArray(visitData.completedSections)) {
+          // Find the first section that is not completed
+          let nextIncompleteSection = 0;
+          for (let i = 0; i < templateData.sections?.length || 0; i++) {
+            if (visitData.completedSections.indexOf(i) === -1) {
+              nextIncompleteSection = i;
+              break;
             }
-          } catch (err) {
-            console.error('Error loading template:', err);
-            setError('Failed to load assessment template');
           }
-        } else {
-          setError('No assessment template associated with this visit');
+          setActiveSection(Math.min(nextIncompleteSection, templateData.sections?.length - 1 || 0));
         }
-      } catch (err) {
-        console.error('Error loading visit:', err);
-        setError('Failed to load visit data');
+        
+      } catch (error: any) {
+        console.error('Error in fetchVisitAndTemplate:', error);
+        setError(error.message || 'An unexpected error occurred loading the assessment');
       } finally {
         setIsLoading(false);
       }
@@ -3054,3 +3043,14 @@ export default function ConductVisitPage() {
     </div>
   );
 } // This is the correct closing brace for the ConductVisitPage component
+
+// Create a wrapper component to handle any errors
+const ConductPageWithErrorHandling = () => {
+  return (
+    <ErrorBoundary>
+      <ConductVisitPage />
+    </ErrorBoundary>
+  );
+};
+
+export default ConductPageWithErrorHandling;

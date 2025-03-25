@@ -693,6 +693,19 @@ function ConductVisitPage() {
             });
             
             setQuestionnaireSections(processedSections);
+            
+            // Initialize currentSection to the first uncompleted section
+            if (visitData.completedSections && Array.isArray(visitData.completedSections)) {
+              // Find the first section that is not completed
+              let nextIncompleteSection = 0;
+              for (let i = 0; i < templateData.sections?.length || 0; i++) {
+                if (visitData.completedSections.indexOf(i) === -1) {
+                  nextIncompleteSection = i;
+                  break;
+                }
+              }
+              setActiveSection(Math.min(nextIncompleteSection, templateData.sections?.length - 1 || 0));
+            }
           } else {
             setQuestionnaireSections([]);
             setError('The template has no assessment sections');
@@ -706,19 +719,6 @@ function ConductVisitPage() {
         // Load existing responses if any
         if (visitData.responses) {
           setResponses(visitData.responses);
-        }
-        
-        // Initialize currentSection to the first uncompleted section
-        if (visitData.completedSections && Array.isArray(visitData.completedSections)) {
-          // Find the first section that is not completed
-          let nextIncompleteSection = 0;
-          for (let i = 0; i < templateData.sections?.length || 0; i++) {
-            if (visitData.completedSections.indexOf(i) === -1) {
-              nextIncompleteSection = i;
-              break;
-            }
-          }
-          setActiveSection(Math.min(nextIncompleteSection, templateData.sections?.length - 1 || 0));
         }
         
       } catch (error: any) {

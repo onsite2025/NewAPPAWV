@@ -22,6 +22,11 @@ interface IVisitResponse {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+  completedSections?: number[];
+  healthPlan?: {
+    recommendations: any[];
+    summary: string;
+  };
 }
 
 interface IVisitCreateRequest {

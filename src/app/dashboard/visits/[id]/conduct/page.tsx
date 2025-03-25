@@ -2796,6 +2796,36 @@ function ConductVisitPage() {
     );
   };
   
+  // Add this in ConductVisitPage function near the beginning
+  const FriendlyErrorDisplay = ({ error, visitId, onRetry }: { error: string, visitId?: string, onRetry?: () => void }) => {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 mt-10">
+        <div className="p-6 bg-white rounded-lg shadow-lg max-w-lg w-full text-center border border-red-100">
+          <FiAlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">Error Loading Assessment</h3>
+          <p className="text-gray-600 mb-4">{error}</p>
+          {visitId && (
+            <p className="text-sm text-gray-500 mb-4">Visit ID: {visitId}</p>
+          )}
+          <div className="flex flex-col sm:flex-row justify-center gap-3 mt-5">
+            {onRetry && (
+              <button 
+                onClick={onRetry}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors">
+                Try Again
+              </button>
+            )}
+            <Link 
+              href="/dashboard/visits"
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md transition-colors">
+              Return to Visits
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
   if (isLoading) {
     return (
       <div className="animate-pulse">
@@ -2820,6 +2850,20 @@ function ConductVisitPage() {
           Back to Visits
         </Link>
       </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <FriendlyErrorDisplay 
+        error={error} 
+        visitId={visitId} 
+        onRetry={() => {
+          setError(null);
+          setIsLoading(true);
+          fetchVisitAndTemplate();
+        }} 
+      />
     );
   }
   

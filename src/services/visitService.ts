@@ -212,6 +212,8 @@ const visitService = {
         let data;
         try {
           data = await response.json();
+          // Log the complete data structure to help debug
+          console.log('Raw response data from API:', JSON.stringify(data));
         } catch (parseError) {
           console.error('Error parsing JSON response:', parseError);
           throw new ApiError('Invalid response format from server', 500);
@@ -219,12 +221,42 @@ const visitService = {
         
         // Validate essential properties to ensure we have valid data
         if (!data || typeof data !== 'object') {
+          console.error('Empty or invalid response data:', data);
           throw new ApiError('Empty or invalid response data', 500);
         }
         
-        if (!data._id) {
-          console.error('Invalid visit data - missing ID:', data);
-          throw new ApiError('Visit data is incomplete or invalid', 500);
+        // Be more flexible with ID field - it could be _id, id, or visitId
+        const visitId = data._id || data.id || data.visitId;
+        if (!visitId) {
+          console.error('Invalid visit data - missing ID field:', data);
+          
+          // If data contains error information, use that instead
+          if (data.error) {
+            throw new ApiError(data.error, data.status || 500);
+          }
+          
+          // For Netlify environment: If the response appears to be an object with data property
+          // that contains the actual visit data (common API wrapper pattern)
+          if (data.data && typeof data.data === 'object') {
+            const nestedData = data.data;
+            const nestedId = nestedData._id || nestedData.id || nestedData.visitId;
+            
+            if (nestedId) {
+              console.log('Found visit ID in nested data structure');
+              // Use the nested data instead
+              data = nestedData;
+            } else {
+              throw new ApiError('Visit data is incomplete or invalid (nested structure)', 500);
+            }
+          } else {
+            throw new ApiError('Visit data is incomplete or invalid', 500);
+          }
+        }
+        
+        // If we reach here, ensure the _id field exists 
+        // (normalize data format to have _id consistently)
+        if (!data._id && (data.id || data.visitId)) {
+          data._id = data.id || data.visitId;
         }
         
         // Ensure patient data is valid

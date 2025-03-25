@@ -41,13 +41,15 @@ export default function TemplateManagementPage() {
         setError(null);
         
         // Get user role
-        const { role } = await userService.getUserRole();
-        setUserRole(role);
-        
-        // Check permission - only admin and provider can access
-        if (role !== 'admin' && role !== 'provider') {
-          router.push('/dashboard');
-          return;
+        if (user?.uid) {
+          const { role } = await userService.getUserRole(user.uid);
+          setUserRole(role);
+          
+          // Check permission - only admin and provider can access
+          if (role !== 'admin' && role !== 'provider') {
+            router.push('/dashboard');
+            return;
+          }
         }
         
         // Fetch templates

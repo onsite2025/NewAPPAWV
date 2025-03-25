@@ -84,7 +84,7 @@ const VisitUpdateSchema = z.object({
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
-) {
+): Promise<Response> {
   const id = params.id;
   
   // Validate ID format
@@ -123,7 +123,7 @@ export async function GET(
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
-) {
+): Promise<Response> {
   const id = params.id;
   
   // Validate ID format
@@ -178,7 +178,7 @@ export async function PUT(
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }
-) {
+): Promise<Response> {
   const id = params.id;
   
   // Validate ID format

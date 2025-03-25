@@ -3,7 +3,7 @@
 // Prevent static rendering of this route
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Component, ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { FiPrinter, FiDownload, FiMail, FiEdit, FiArrowLeft, FiUser, FiFileText, FiClipboard, FiActivity, FiInfo, FiAlertCircle, FiAlertTriangle } from 'react-icons/fi';
@@ -11,6 +11,27 @@ import visitService from '@/services/visitService';
 import templateService from '@/services/templateService';
 import patientService from '@/services/patientService';
 import { format } from 'date-fns';
+
+// ErrorBoundary component to catch rendering errors
+class ErrorBoundary extends Component<{ children: ReactNode, fallback: ReactNode }> {
+  state = { hasError: false, error: null };
+  
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+  
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("Report page error:", error, errorInfo);
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    
+    return this.props.children;
+  }
+}
 
 // Add type definitions for the health plan recommendations
 interface HealthPlanRecommendation {
@@ -23,8 +44,29 @@ interface HealthPlanRecommendation {
   };
 }
 
-// Remove dynamic imports that are causing linter errors
-export default function VisitReportPage() {
+// Export the wrapped component
+export default function VisitReportPageWrapper() {
+  return (
+    <ErrorBoundary fallback={
+      <div className="container mx-auto p-4">
+        <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <h2 className="text-lg font-bold mb-2">Error Loading Report</h2>
+          <p>There was a problem loading this report. This might be due to missing or invalid data.</p>
+          <div className="mt-4">
+            <Link href="/dashboard/visits" className="text-blue-600 hover:underline">
+              Return to visits
+            </Link>
+          </div>
+        </div>
+      </div>
+    }>
+      <VisitReportPage />
+    </ErrorBoundary>
+  );
+}
+
+// Main Report Component
+function VisitReportPage() {
   const params = useParams();
   const router = useRouter();
   const visitId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
@@ -70,38 +112,59 @@ export default function VisitReportPage() {
   
   useEffect(() => {
     const fetchVisitData = async () => {
+      if (!visitId) {
+        setError('Invalid visit ID');
+        setIsLoading(false);
+        return;
+      }
+      
       try {
         setIsLoading(true);
         setError(null);
         
         // Fetch visit data
         const visitData = await visitService.getVisitById(visitId);
+        
+        if (!visitData) {
+          setError('Visit not found');
+          setIsLoading(false);
+          return;
+        }
+        
         setVisit(visitData);
         
         // Fetch template if available
         if (visitData.templateId) {
           try {
             const templateData = await templateService.getTemplateById(visitData.templateId);
-            setTemplate(templateData);
+            if (templateData) {
+              setTemplate(templateData);
+            }
           } catch (err) {
             console.error('Error fetching template:', err);
+            // Continue without template - non-critical
           }
         }
         
         // Fetch patient details if not populated
-        if (visitData.patient && typeof visitData.patient === 'object') {
-          setPatient(visitData.patient);
-        } else if (visitData.patient) {
-          try {
-            const patientData = await patientService.getPatientById(visitData.patient);
-            setPatient(patientData);
-          } catch (err) {
-            console.error('Error fetching patient:', err);
+        if (visitData.patient) {
+          if (typeof visitData.patient === 'object' && visitData.patient !== null) {
+            setPatient(visitData.patient);
+          } else if (typeof visitData.patient === 'string') {
+            try {
+              const patientData = await patientService.getPatientById(visitData.patient);
+              if (patientData) {
+                setPatient(patientData);
+              }
+            } catch (err) {
+              console.error('Error fetching patient:', err);
+              // Continue without patient details - non-critical
+            }
           }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching visit:', err);
-        setError('Failed to load visit details');
+        setError(`Failed to load visit details: ${err.message || 'Unknown error'}`);
       } finally {
         setIsLoading(false);
       }
@@ -205,7 +268,8 @@ export default function VisitReportPage() {
   
   // Format the recommendations and health plan content for the report
   const renderHealthPlan = () => {
-    if (!visit.healthPlan || !visit.healthPlan.recommendations || visit.healthPlan.recommendations.length === 0) {
+    // Ensure visit exists and has expected properties to prevent client-side exceptions
+    if (!visit || !visit.healthPlan || !Array.isArray(visit.healthPlan.recommendations) || visit.healthPlan.recommendations.length === 0) {
       return (
         <div className="mb-8 p-5 bg-gray-50 rounded-lg border border-gray-200">
           <h2 className="text-xl font-bold mb-2 text-primary-700 flex items-center">
@@ -233,6 +297,13 @@ export default function VisitReportPage() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {visit.healthPlan.recommendations.map((rec: any, index: number) => {
+            // Safety check for malformed recommendation
+            if (!rec || typeof rec !== 'object') {
+              return null;
+            }
+            
+            const priority = rec.priority?.toLowerCase() || 'medium';
+            
             const priorityColors = {
               high: {
                 border: 'border-red-500',
@@ -254,8 +325,8 @@ export default function VisitReportPage() {
               }
             };
             
-            const priority = rec.priority?.toLowerCase() || 'medium';
-            const colors = priorityColors[priority as keyof typeof priorityColors];
+            // Safely access colors with fallback
+            const colors = priorityColors[priority as keyof typeof priorityColors] || priorityColors.medium;
             
             return (
               <div 
@@ -265,16 +336,16 @@ export default function VisitReportPage() {
                 <div className="flex justify-between items-start mb-2">
                   <h4 className="font-medium text-gray-800 flex items-center">
                     {colors.icon}
-                    {rec.domain}
+                    {rec.domain || 'General'}
                   </h4>
                   <span className={`text-xs font-bold rounded-full px-3 py-1 uppercase ${colors.badge}`}>
-                    {rec.priority}
+                    {priority}
                   </span>
                 </div>
-                <p className="text-gray-700 mb-2">{rec.text}</p>
+                <p className="text-gray-700 mb-2">{rec.text || 'No recommendation text'}</p>
                 {rec.source && (
                   <div className="text-sm text-gray-500 mt-2 border-t pt-2 border-gray-200">
-                    <div>Based on: <span className="font-medium">{rec.source.question}</span></div>
+                    <div>Based on: <span className="font-medium">{rec.source.question || 'Assessment'}</span></div>
                     {rec.source.response && (
                       <div className="text-xs italic mt-1">Response: {rec.source.response}</div>
                     )}

@@ -1273,7 +1273,7 @@ export default function ConductVisitPage() {
               text: recommendationText,
               priority: 'medium',
               source: {
-                question: questionText,
+            question: questionText,
                 response: responseText
               }
             });
@@ -1608,7 +1608,7 @@ export default function ConductVisitPage() {
     }
     return [];
   };
-
+  
   // Render form inputs based on question type
   const renderQuestion = (question: ProcessedQuestion | any) => {
     // Force the proper input type based on the question structure, not relying on types
@@ -1679,88 +1679,88 @@ export default function ConductVisitPage() {
     
     // Force-map to correct input types based on hard-coded conditions to ensure proper rendering
     switch (inputType) {
-      case 'text':
-        return (
-          <input
-            type="text"
+            case 'text':
+              return (
+                <input
+                  type="text"
             name={question.id}
-            value={responses[question.id] || ''}
+                  value={responses[question.id] || ''}
             onChange={(e) => handleInputChange(question, e)}
-            required={question.required}
+                  required={question.required}
             className="w-full px-3 py-2 border rounded-md"
             placeholder="Enter your answer"
-          />
-        );
-      case 'textarea':
-        return (
-          <textarea
+                />
+              );
+            case 'textarea':
+              return (
+                <textarea
             name={question.id}
-            value={responses[question.id] || ''}
+                  value={responses[question.id] || ''}
             onChange={(e) => handleInputChange(question, e)}
-            required={question.required}
+                  required={question.required}
             className="w-full px-3 py-2 border rounded-md"
             rows={4}
             placeholder="Enter your answer"
-          />
-        );
-      case 'select':
-        return (
-          <select
+                />
+              );
+            case 'select':
+              return (
+                <select
             name={question.id}
-            value={responses[question.id] || ''}
+                  value={responses[question.id] || ''}
             onChange={(e) => handleInputChange(question, e)}
-            required={question.required}
+                  required={question.required}
             className="w-full px-3 py-2 border rounded-md"
-          >
-            <option value="">Select an option</option>
+                >
+                  <option value="">Select an option</option>
             {question.options?.map((option: any) => (
               <option key={getOptionValue(option)} value={getOptionValue(option)}>
                 {getOptionLabel(option)}
-              </option>
-            ))}
-          </select>
-        );
-      case 'radio':
-        return (
+                    </option>
+                  ))}
+                </select>
+              );
+            case 'radio':
+              return (
           <div className="space-y-2">
             {question.options?.map((option: any) => (
               <label key={getOptionValue(option)} className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  name={question.id}
+                      <input
+                        type="radio"
+                        name={question.id}
                   value={getOptionValue(option)}
                   checked={responses[question.id] === getOptionValue(option)}
                   onChange={(e) => handleInputChange(question, e)}
-                  required={question.required}
+                        required={question.required}
                   className="form-radio"
-                />
+                      />
                 <span>{getOptionLabel(option)}</span>
-              </label>
-            ))}
-          </div>
-        );
-      case 'checkbox':
-        return (
+                    </label>
+                  ))}
+                </div>
+              );
+            case 'checkbox':
+              return (
           <div className="space-y-2">
             {question.options?.map((option: any) => (
               <label key={getOptionValue(option)} className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
+                      <input
+                        type="checkbox"
                   name={question.id}
                   value={getOptionValue(option)}
                   checked={(responses[question.id] || []).includes(getOptionValue(option))}
                   onChange={(e) => handleInputChange(question, e)}
                   required={question.required}
-                  className="form-checkbox"
-                />
+                        className="form-checkbox"
+                      />
                 <span>{getOptionLabel(option)}</span>
-              </label>
-            ))}
-          </div>
-        );
+                    </label>
+                  ))}
+                </div>
+              );
       case 'numeric':
-        case 'range':
-          return (
+            case 'range':
+              return (
             <input
               type="number"
               name={question.id}
@@ -1819,22 +1819,22 @@ export default function ConductVisitPage() {
       case 'bmi':
         return (
           <div className="space-y-4">
-            <div>
+                <div>
               <label className="block text-sm font-medium text-gray-700">
                 Height ({question.config?.units === 'metric' ? 'cm' : 'inches'})
               </label>
-              <input
+                  <input
                 type="number"
                 name={`${question.id}_height`}
                 value={responses[`${question.id}_height`] || ''}
                 onChange={(e) => handleInputChange(question, e)}
-                required={question.required}
+                    required={question.required}
                 min={question.config?.units === 'metric' ? 50 : 20}
                 max={question.config?.units === 'metric' ? 300 : 120}
                 step={question.config?.units === 'metric' ? 0.1 : 0.1}
                 className="w-full px-3 py-2 border rounded-md"
-              />
-            </div>
+                  />
+                  </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Weight ({question.config?.units === 'metric' ? 'kg' : 'lbs'})
@@ -1850,7 +1850,7 @@ export default function ConductVisitPage() {
                 step={question.config?.units === 'metric' ? 0.1 : 0.1}
                 className="w-full px-3 py-2 border rounded-md"
               />
-            </div>
+                </div>
             {responses[`${question.id}_height`] && responses[`${question.id}_weight`] && (
               <div className="mt-2">
                 {(() => {
@@ -2296,7 +2296,7 @@ export default function ConductVisitPage() {
         )}
       </div>
     );
-      default:
+            default:
         return null; // Return null for unknown question types
     }
   };
@@ -2359,7 +2359,7 @@ export default function ConductVisitPage() {
                   BMI: {bmi.value.toFixed(1)} ({bmi.category})
                 </p>
               );
-            })()}
+        })()}
           </div>
         )}
       </div>
@@ -2370,9 +2370,9 @@ export default function ConductVisitPage() {
     return (
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700">
             Blood Pressure (mmHg)
-          </label>
+              </label>
           <div className="flex space-x-2">
             <input
               type="number"
@@ -2398,7 +2398,7 @@ export default function ConductVisitPage() {
               className="w-1/2 px-3 py-2 border rounded-md"
               placeholder="Diastolic"
             />
-          </div>
+            </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
@@ -2957,7 +2957,7 @@ export default function ConductVisitPage() {
                           sectionTitle = section.title;
                           
                           // Format response based on question type
-                          const response = responses[questionId];
+                    const response = responses[questionId];
                           if (Array.isArray(response)) {
                             // For multiple selection questions
                             responseText = response.join(', ');
@@ -3005,7 +3005,7 @@ export default function ConductVisitPage() {
                     return (
                       <div key={questionId} className="p-3 bg-gray-50 rounded-md">
                         <div className="flex justify-between items-start">
-                          <div className="font-medium">{questionText}</div>
+                        <div className="font-medium">{questionText}</div>
                           <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                             {sectionTitle}
                           </div>
@@ -3059,4 +3059,4 @@ export default function ConductVisitPage() {
       </div>
     </div>
   );
-}
+} // This is the correct closing brace for the ConductVisitPage component

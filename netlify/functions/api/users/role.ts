@@ -1,5 +1,5 @@
 import { Handler } from '@netlify/functions';
-import { connectToDatabase } from '../../../../src/lib/mongodb';
+import connectToDatabase from '../../../../src/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import User from '../../../../src/models/User';
 

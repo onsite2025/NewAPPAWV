@@ -82,10 +82,10 @@ const VisitUpdateSchema = z.object({
 
 // GET /api/visits/[id] - Fetch a specific visit
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
-  const id = params.id;
+  const { id } = await params;
   
   // Validate ID format
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
@@ -121,10 +121,10 @@ export async function GET(
 
 // PUT /api/visits/[id] - Update a visit
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
-  const id = params.id;
+  const { id } = await params;
   
   // Validate ID format
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
@@ -176,10 +176,10 @@ export async function PUT(
 
 // DELETE /api/visits/[id] - Delete a visit
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
-  const id = params.id;
+  const { id } = await params;
   
   // Validate ID format
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {

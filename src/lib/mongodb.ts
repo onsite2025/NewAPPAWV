@@ -55,7 +55,11 @@ async function performHealthCheck() {
     // Check if the connection is actually responsive
     try {
       // Perform a lightweight operation to test connection
-      await mongoose.connection.db.admin().ping();
+      if (mongoose.connection.db) {
+        await mongoose.connection.db.admin().ping();
+      } else {
+        throw new Error('MongoDB connection db is undefined');
+      }
     } catch (err: any) {
       console.error('MongoDB connection health check: Connection unresponsive', err);
       // Force close and reconnect
@@ -122,7 +126,12 @@ export default async function connectToDatabase(): Promise<mongoose.Connection> 
       globalState.isConnected = mongoose.connection.readyState;
       globalState.readyState = mongoose.connection.readyState;
       globalState.client = mongoose.connection;
-      globalState.dbName = mongoose.connection.db.databaseName;
+      
+      if (mongoose.connection.db) {
+        globalState.dbName = mongoose.connection.db.databaseName;
+      } else {
+        globalState.dbName = 'unknown';
+      }
       
       // Set up health check interval
       globalState.healthCheckInterval = setInterval(performHealthCheck, HEALTH_CHECK_INTERVAL);

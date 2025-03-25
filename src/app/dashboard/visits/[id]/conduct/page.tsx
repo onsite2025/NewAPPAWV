@@ -1592,86 +1592,161 @@ export default function ConductVisitPage() {
     switch (inputType) {
             case 'text':
               return (
-                <input
-                  type="text"
-            name={question.id}
-                  value={responses[question.id] || ''}
-            onChange={(e) => handleInputChange(question, e)}
-                  required={question.required}
-            className="w-full px-3 py-2 border rounded-md"
-            placeholder="Enter your answer"
-                />
+                <>
+                  <input
+                    type="text"
+                    name={question.id}
+                    value={responses[question.id] || ''}
+                    onChange={(e) => handleInputChange(question, e)}
+                    required={question.required}
+                    className="w-full px-3 py-2 border rounded-md"
+                    placeholder="Enter your answer"
+                  />
+                  {recommendations[question.id] && (
+                    <div className="mt-3 p-3 bg-blue-50 rounded-md border border-blue-100">
+                      <p className="text-sm text-blue-800">
+                        <span className="font-medium">Recommendation: </span> 
+                        {recommendations[question.id]}
+                      </p>
+                    </div>
+                  )}
+                </>
               );
             case 'textarea':
               return (
-                <textarea
-            name={question.id}
-                  value={responses[question.id] || ''}
-            onChange={(e) => handleInputChange(question, e)}
-                  required={question.required}
-            className="w-full px-3 py-2 border rounded-md"
-            rows={4}
-            placeholder="Enter your answer"
-                />
+                <>
+                  <textarea
+                    name={question.id}
+                    value={responses[question.id] || ''}
+                    onChange={(e) => handleInputChange(question, e)}
+                    required={question.required}
+                    className="w-full px-3 py-2 border rounded-md"
+                    rows={4}
+                    placeholder="Enter your answer"
+                  />
+                  {recommendations[question.id] && (
+                    <div className="mt-3 p-3 bg-blue-50 rounded-md border border-blue-100">
+                      <p className="text-sm text-blue-800">
+                        <span className="font-medium">Recommendation: </span> 
+                        {recommendations[question.id]}
+                      </p>
+                    </div>
+                  )}
+                </>
               );
             case 'select':
               return (
-                <select
-            name={question.id}
-                  value={responses[question.id] || ''}
-            onChange={(e) => handleInputChange(question, e)}
-                  required={question.required}
-            className="w-full px-3 py-2 border rounded-md"
-                >
-                  <option value="">Select an option</option>
-            {question.options?.map((option: any) => (
-              <option key={getOptionValue(option)} value={getOptionValue(option)}>
-                {getOptionLabel(option)}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    name={question.id}
+                    value={responses[question.id] || ''}
+                    onChange={(e) => handleInputChange(question, e)}
+                    required={question.required}
+                    className="w-full px-3 py-2 border rounded-md"
+                  >
+                    <option value="">Select an option</option>
+                    {question.options?.map((option: any) => (
+                      <option key={getOptionValue(option)} value={getOptionValue(option)}>
+                        {getOptionLabel(option)}
+                      </option>
+                    ))}
+                  </select>
+                  {recommendations[question.id] && (
+                    <div className="mt-3 p-3 bg-blue-50 rounded-md border border-blue-100">
+                      <p className="text-sm text-blue-800">
+                        <span className="font-medium">Recommendation: </span> 
+                        {recommendations[question.id]}
+                      </p>
+                    </div>
+                  )}
+                </>
               );
             case 'radio':
               return (
-          <div className="space-y-2">
-            {question.options?.map((option: any) => (
-              <label key={getOptionValue(option)} className="flex items-center space-x-2">
+                <div className="space-y-2">
+                  {question.options?.map((option: any) => (
+                    <label 
+                      key={getOptionValue(option)} 
+                      className={`flex items-start p-2 rounded-md hover:bg-gray-50 cursor-pointer ${
+                        option.recommendation ? 'border border-blue-100' : ''
+                      }`}
+                    >
                       <input
                         type="radio"
                         name={question.id}
-                  value={getOptionValue(option)}
-                  checked={responses[question.id] === getOptionValue(option)}
-                  onChange={(e) => handleInputChange(question, e)}
+                        value={getOptionValue(option)}
+                        checked={responses[question.id] === getOptionValue(option)}
+                        onChange={(e) => handleInputChange(question, e)}
                         required={question.required}
-                  className="form-radio"
+                        className="form-radio mt-1 mr-2"
                       />
-                <span>{getOptionLabel(option)}</span>
+                      <div className="flex-1">
+                        <span>{getOptionLabel(option)}</span>
+                        {option.recommendation && (
+                          <span className="ml-2 text-xs inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                            Has recommendation
+                          </span>
+                        )}
+                      </div>
                     </label>
                   ))}
+                  
+                  {/* Show recommendation for this question if available */}
+                  {recommendations[question.id] && responses[question.id] && (
+                    <div className="mt-3 p-3 bg-blue-50 rounded-md border border-blue-100">
+                      <p className="text-sm text-blue-800">
+                        <span className="font-medium">Recommendation: </span> 
+                        {recommendations[question.id]}
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             case 'checkbox':
               return (
-          <div className="space-y-2">
-            {question.options?.map((option: any) => (
-              <label key={getOptionValue(option)} className="flex items-center space-x-2">
+                <div className="space-y-2">
+                  {question.options?.map((option: any) => (
+                    <label 
+                      key={getOptionValue(option)} 
+                      className={`flex items-start p-2 rounded-md hover:bg-gray-50 cursor-pointer ${
+                        option.recommendation ? 'border border-blue-100' : ''
+                      }`}
+                    >
                       <input
                         type="checkbox"
-                  name={question.id}
-                  value={getOptionValue(option)}
-                  checked={(responses[question.id] || []).includes(getOptionValue(option))}
-                  onChange={(e) => handleInputChange(question, e)}
-                  required={question.required}
-                        className="form-checkbox"
+                        name={question.id}
+                        value={getOptionValue(option)}
+                        checked={(responses[question.id] || []).includes(getOptionValue(option))}
+                        onChange={(e) => handleInputChange(question, e)}
+                        required={question.required}
+                        className="form-checkbox mt-1 mr-2"
                       />
-                <span>{getOptionLabel(option)}</span>
+                      <div className="flex-1">
+                        <span>{getOptionLabel(option)}</span>
+                        {option.recommendation && (
+                          <span className="ml-2 text-xs inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                            Has recommendation
+                          </span>
+                        )}
+                      </div>
                     </label>
                   ))}
+                  
+                  {/* Show recommendation for this question if available */}
+                  {recommendations[question.id] && responses[question.id] && (
+                    <div className="mt-3 p-3 bg-blue-50 rounded-md border border-blue-100">
+                      <p className="text-sm text-blue-800">
+                        <span className="font-medium">Recommendation: </span> 
+                        {recommendations[question.id]}
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
       case 'numeric':
-            case 'range':
-              return (
+      case 'range':
+        return (
+          <>
             <input
               type="number"
               name={question.id}
@@ -1684,47 +1759,76 @@ export default function ConductVisitPage() {
               className="w-full px-3 py-2 border rounded-md"
               placeholder="Enter a number"
             />
-          );
+            {recommendations[question.id] && (
+              <div className="mt-3 p-3 bg-blue-50 rounded-md border border-blue-100">
+                <p className="text-sm text-blue-800">
+                  <span className="font-medium">Recommendation: </span> 
+                  {recommendations[question.id]}
+                </p>
+              </div>
+            )}
+          </>
+        );
       case 'date':
         return (
-          <input
-            type="date"
-            name={question.id}
-            value={responses[question.id] || ''}
-            onChange={(e) => handleInputChange(question, e)}
-            required={question.required}
-            min={question.config?.min}
-            max={question.config?.max}
-            className="w-full px-3 py-2 border rounded-md"
-          />
+          <>
+            <input
+              type="date"
+              name={question.id}
+              value={responses[question.id] || ''}
+              onChange={(e) => handleInputChange(question, e)}
+              required={question.required}
+              min={question.config?.min}
+              max={question.config?.max}
+              className="w-full px-3 py-2 border rounded-md"
+            />
+            {recommendations[question.id] && (
+              <div className="mt-3 p-3 bg-blue-50 rounded-md border border-blue-100">
+                <p className="text-sm text-blue-800">
+                  <span className="font-medium">Recommendation: </span> 
+                  {recommendations[question.id]}
+                </p>
+              </div>
+            )}
+          </>
         );
       case 'boolean':
         return (
-          <div className="space-y-2">
-            <label className="flex items-center space-x-2">
-              <input
-                type="radio"
-                name={question.id}
-                value="true"
-                checked={responses[question.id] === 'true'}
-                onChange={(e) => handleInputChange(question, e)}
-                required={question.required}
-                className="form-radio"
-              />
-              <span>{question.config?.trueLabel || 'Yes'}</span>
-            </label>
-            <label className="flex items-center space-x-2">
-              <input
-                type="radio"
-                name={question.id}
-                value="false"
-                checked={responses[question.id] === 'false'}
-                onChange={(e) => handleInputChange(question, e)}
-                required={question.required}
-                className="form-radio"
-              />
-              <span>{question.config?.falseLabel || 'No'}</span>
-            </label>
+          <div>
+            <div className="space-y-2">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  name={question.id}
+                  value="true"
+                  checked={responses[question.id] === 'true'}
+                  onChange={(e) => handleInputChange(question, e)}
+                  required={question.required}
+                  className="form-radio"
+                />
+                <span>{question.config?.trueLabel || 'Yes'}</span>
+              </label>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  name={question.id}
+                  value="false"
+                  checked={responses[question.id] === 'false'}
+                  onChange={(e) => handleInputChange(question, e)}
+                  required={question.required}
+                  className="form-radio"
+                />
+                <span>{question.config?.falseLabel || 'No'}</span>
+              </label>
+            </div>
+            {recommendations[question.id] && (
+              <div className="mt-3 p-3 bg-blue-50 rounded-md border border-blue-100">
+                <p className="text-sm text-blue-800">
+                  <span className="font-medium">Recommendation: </span> 
+                  {recommendations[question.id]}
+                </p>
+              </div>
+            )}
           </div>
         );
       case 'bmi':

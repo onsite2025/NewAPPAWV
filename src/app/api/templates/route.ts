@@ -90,8 +90,12 @@ export async function POST(request) {
     // Parse request body
     const body = await request.json();
     
+    // Log the request body for debugging
+    console.log('Template creation request body:', JSON.stringify(body, null, 2));
+    
     // Validate required fields
     if (!body.name || !body.sections || !Array.isArray(body.sections)) {
+      console.log('Validation failed: Missing required fields');
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -117,12 +121,25 @@ export async function POST(request) {
       };
     });
     
+    // Log processed sections for debugging
+    console.log('Processed sections:', JSON.stringify(processedSections, null, 2));
+    
     // Create template with mock user ID for now (will be replaced with actual auth)
     const template = new TemplateModel({
       ...body,
       sections: processedSections,
       createdBy: '65f7f8b04115f9f2b10a5c4d', // Mock user ID - replace with actual auth
     });
+    
+    // Log validation errors if any
+    const validationError = template.validateSync();
+    if (validationError) {
+      console.error('Template validation error:', validationError);
+      return NextResponse.json(
+        { error: 'Template validation failed', details: validationError },
+        { status: 400 }
+      );
+    }
     
     // Save the template
     await template.save();
@@ -131,7 +148,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('Error creating template:', error);
     return NextResponse.json(
-      { error: 'Failed to create template' },
+      { error: 'Failed to create template', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

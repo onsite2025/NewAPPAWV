@@ -631,89 +631,24 @@ function ConductVisitPage() {
           
           setTemplateName(templateData.name || 'Visit Assessment');
           
-          // Process the template data
-          if (templateData.sections) {
-            // Create processed sections with properly typed questions
-            const processedSections: QuestionnaireSection[] = templateData.sections.map((section: any) => {
-              // Ensure valid section structure
-              if (!section || !section.questions || !Array.isArray(section.questions)) {
-                return {
-                  id: section?.id || uuidv4(),
-                  title: section?.title || 'Unknown Section',
-                  description: section?.description || '',
-                  questions: []
-                };
-              }
-              
-              // Process questions from template format to application format
-              const processedQuestions = section.questions.map((q: any) => {
-                // Ensure we have a valid question object
-                if (!q || typeof q !== 'object') {
-                  return {
-                    id: uuidv4(),
-                    text: 'Invalid question data',
-                    type: 'text' as AppQuestionType,
-                    required: false
-                  };
-                }
-                
-                // Convert template question type to app question type
-                let processedType: AppQuestionType = 'text';
-                if (q.type) {
-                  processedType = mapQuestionType(q.type);
-                }
-                
-                // Ensure question has an ID
-                const questionId = q.id || uuidv4();
-                
-                // Convert to ProcessedQuestion format
-                return {
-                  ...q,
-                  id: questionId,
-                  type: processedType,
-                  originalType: q.type,
-                  text: q.text || 'Untitled question',
-                  required: q.required === true,
-                  options: Array.isArray(q.options) ? q.options.map((opt: any) => ({
-                    ...opt,
-                    id: opt.id || uuidv4(),
-                    value: getOptionValue(opt),
-                    label: getOptionLabel(opt),
-                  })) : []
-                };
-              });
-              
-              return {
-                ...section,
-                id: section.id || uuidv4(),
-                title: section.title || 'Untitled Section',
-                description: section.description || '',
-                questions: processedQuestions
-              };
-            });
-            
+          // Process the template sections
+          if (templateData.sections && Array.isArray(templateData.sections)) {
+            // Transform template sections to QuestionnaireSection format
+            const processedSections = templateData.sections.map((section: any) => ({
+              id: section.id || uuidv4(),
+              title: section.title || 'Untitled Section',
+              description: section.description || '',
+              questions: Array.isArray(section.questions) ? section.questions : []
+            }));
             setQuestionnaireSections(processedSections);
-            
-            // Initialize currentSection to the first uncompleted section
-            if (visitData.completedSections && Array.isArray(visitData.completedSections)) {
-              // Find the first section that is not completed
-              let nextIncompleteSection = 0;
-              for (let i = 0; i < templateData.sections?.length || 0; i++) {
-                if (visitData.completedSections.indexOf(i) === -1) {
-                  nextIncompleteSection = i;
-                  break;
-                }
-              }
-              setActiveSection(Math.min(nextIncompleteSection, templateData.sections?.length - 1 || 0));
-            }
           } else {
             setQuestionnaireSections([]);
             setError('The template has no assessment sections');
           }
+          
         } catch (templateError: any) {
           console.error('Error fetching template:', templateError);
           setError(templateError.message || 'Failed to load assessment template');
-          setQuestionnaireSections([]);
         }
         
         // Load existing responses if any
@@ -2859,9 +2794,79 @@ function ConductVisitPage() {
         error={error} 
         visitId={visitId} 
         onRetry={() => {
+          // Reset state
           setError(null);
           setIsLoading(true);
-          fetchVisitAndTemplate();
+          
+          // Rerun the same fetch operation from useEffect
+          const fetchData = async () => {
+            try {
+              // Fetch visit data
+              let visitData;
+              try {
+                visitData = await visitService.getVisitById(visitId);
+                console.log('Visit data loaded:', visitData);
+                
+                if (!visitData) {
+                  throw new Error('No visit data received');
+                }
+                
+                setVisit(visitData);
+              } catch (visitError: any) {
+                console.error('Error fetching visit:', visitError);
+                setError(visitError.message || 'Failed to load visit data');
+                setIsLoading(false);
+                return;
+              }
+              
+              // Exit early if no template ID
+              if (!visitData.templateId) {
+                setError('This visit does not have an assessment template assigned');
+                setIsLoading(false);
+                return;
+              }
+              
+              // Fetch template data
+              try {
+                const templateData = await templateService.getTemplateById(visitData.templateId);
+                console.log('Template data loaded:', templateData);
+                
+                if (!templateData) {
+                  throw new Error('No template data received');
+                }
+                
+                setTemplateName(templateData.name || 'Visit Assessment');
+                
+                // Process the template sections
+                if (templateData.sections && Array.isArray(templateData.sections)) {
+                  // Transform template sections to QuestionnaireSection format
+                  const processedSections = templateData.sections.map((section: any) => ({
+                    id: section.id || uuidv4(),
+                    title: section.title || 'Untitled Section',
+                    description: section.description || '',
+                    questions: Array.isArray(section.questions) ? section.questions : []
+                  }));
+                  setQuestionnaireSections(processedSections);
+                } else {
+                  setQuestionnaireSections([]);
+                  setError('The template has no assessment sections');
+                }
+                
+              } catch (templateError: any) {
+                console.error('Error fetching template:', templateError);
+                setError(templateError.message || 'Failed to load assessment template');
+              }
+              
+            } catch (err: any) {
+              console.error('Error loading data:', err);
+              setError(err.message || 'An unexpected error occurred');
+            } finally {
+              setIsLoading(false);
+            }
+          };
+          
+          // Call the function
+          fetchData();
         }} 
       />
     );

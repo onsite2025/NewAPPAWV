@@ -1116,14 +1116,22 @@ function ConductVisitPage() {
         console.log('Saving progress with sections:', updatedCompletedSections);
         
         // Save progress to the backend
-        await visitService.updateVisit(visitId, {
+        const result = await visitService.updateVisit(visitId, {
           status: 'in-progress',
           responses: responses,
           completedSections: updatedCompletedSections
         } as IVisitUpdateRequest);
         
-        // Show success message
-        alert('Progress saved successfully');
+        // Handle nested response structure if needed
+        const isSuccessful = result && (result.success === true || result._id);
+        
+        if (isSuccessful) {
+          // Show success message
+          alert('Progress saved successfully');
+        } else {
+          console.error('Unexpected response from save operation:', result);
+          alert('Something went wrong while saving. Please try again.');
+        }
       } else {
         alert('Please correct the errors before saving');
       }
@@ -1360,7 +1368,15 @@ function ConductVisitPage() {
       };
       
       // Save the completed visit
-      await visitService.updateVisit(visitId, updateData);
+      const result = await visitService.updateVisit(visitId, updateData);
+      
+      // Check if the update was successful
+      const isSuccessful = result && (result.success === true || result._id);
+      
+      if (!isSuccessful) {
+        console.error('Unexpected response from complete visit operation:', result);
+        throw new Error('Failed to complete visit due to unexpected response format');
+      }
       
       // Redirect to report page
       router.push(`/dashboard/visits/${visitId}/report`);

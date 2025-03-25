@@ -27,6 +27,8 @@ interface IVisitResponse {
     recommendations: any[];
     summary: string;
   };
+  success?: boolean;
+  data?: IVisitResponse;
 }
 
 interface IVisitCreateRequest {

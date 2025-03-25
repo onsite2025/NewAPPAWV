@@ -123,15 +123,25 @@ function VisitReportPage() {
         setError(null);
         
         // Fetch visit data
-        const visitData = await visitService.getVisitById(visitId);
+        const visitResponse = await visitService.getVisitById(visitId);
         
-        if (!visitData) {
+        if (!visitResponse) {
           setError('Visit not found');
           setIsLoading(false);
           return;
         }
         
-        setVisit(visitData);
+        // Handle nested response structure (success: true, data: {...})
+        const visitData = visitResponse.data || visitResponse;
+        
+        // Make sure we have a valid visit
+        if (!visitData || !visitData._id) {
+          setError('Invalid visit data structure');
+          setIsLoading(false);
+          return;
+        }
+        
+        setVisit(visitResponse); // Keep original structure for consistency
         
         // Fetch template if available
         if (visitData.templateId) {
@@ -268,8 +278,11 @@ function VisitReportPage() {
   
   // Format the recommendations and health plan content for the report
   const renderHealthPlan = () => {
+    // First check if visit has nested data structure (success: true, data: {...})
+    const visitData = visit.data || visit;
+    
     // Ensure visit exists and has expected properties to prevent client-side exceptions
-    if (!visit || !visit.healthPlan || !Array.isArray(visit.healthPlan.recommendations) || visit.healthPlan.recommendations.length === 0) {
+    if (!visitData || !visitData.healthPlan || !Array.isArray(visitData.healthPlan.recommendations) || visitData.healthPlan.recommendations.length === 0) {
       return (
         <div className="mb-8 p-5 bg-gray-50 rounded-lg border border-gray-200">
           <h2 className="text-xl font-bold mb-2 text-primary-700 flex items-center">
@@ -286,17 +299,17 @@ function VisitReportPage() {
           <FiActivity className="mr-2" /> Personalized Health Plan
         </h2>
         
-        {visit.healthPlan.summary && (
+        {visitData.healthPlan.summary && (
           <div className="mb-6 p-5 bg-blue-50 rounded-lg border border-blue-200">
             <h3 className="font-semibold text-blue-700 mb-2 flex items-center">
               <FiInfo className="mr-1" /> Summary
             </h3>
-            <p className="text-blue-900">{visit.healthPlan.summary}</p>
+            <p className="text-blue-900">{visitData.healthPlan.summary}</p>
           </div>
         )}
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {visit.healthPlan.recommendations.map((rec: any, index: number) => {
+          {visitData.healthPlan.recommendations.map((rec: any, index: number) => {
             // Safety check for malformed recommendation
             if (!rec || typeof rec !== 'object') {
               return null;
@@ -400,14 +413,17 @@ function VisitReportPage() {
     );
   }
   
+  // Use visitData consistently for accessing properties
+  const visitData = visit.data || visit;
+  
   // Prepare patient name
   const patientName = patient ? `${patient.firstName || ''} ${patient.lastName || ''}`.trim() : 'Unknown Patient';
   const patientDOB = patient?.dateOfBirth || null;
   const patientAge = patientDOB ? calculateAge(patientDOB) : 'N/A';
   
   // Prepare provider name
-  const providerName = typeof visit.provider === 'object' && visit.provider !== null
-    ? `${visit.provider.firstName || ''} ${visit.provider.lastName || ''}`.trim() || 'Unknown Provider'
+  const providerName = typeof visitData.provider === 'object' && visitData.provider !== null
+    ? `${visitData.provider.firstName || ''} ${visitData.provider.lastName || ''}`.trim() || 'Unknown Provider'
     : 'Unknown Provider';
   
   // Get template name
@@ -415,81 +431,58 @@ function VisitReportPage() {
   
   // Organize responses into sections (if available)
   const organizedResponses = [];
-  if (visit.responses && template?.sections) {
+  if (visitData.responses && template?.sections) {
     for (const section of template.sections) {
       const sectionResponses = [];
       
       for (const question of section.questions) {
-        if (visit.responses[question.id]) {
+        if (visitData.responses[question.id]) {
           // Find the matching option for the response to get the label
-          let formattedResponse = visit.responses[question.id];
+          let formattedResponse = visitData.responses[question.id];
           let recommendation = '';
           
           // Handle specialized question types
           if (question.type === 'bmi') {
             // Format BMI result
-            const bmiValue = visit.responses[question.id];
-            const bmiCategory = visit.responses[`${question.id}_category`];
+            const bmiValue = visitData.responses[question.id];
+            const bmiCategory = visitData.responses[`${question.id}_category`];
             formattedResponse = `BMI: ${bmiValue} (${bmiCategory})`;
             
             // Add recommendation based on BMI value
-            if (bmiValue < 18.5) {
-              recommendation = 'BMI is below normal range. Consider nutrition counseling to achieve healthy weight.';
-            } else if (bmiValue < 25) {
-              recommendation = 'BMI is within normal range. Continue maintaining healthy diet and exercise habits.';
-            } else if (bmiValue < 30) {
-              recommendation = 'BMI indicates overweight. Recommend lifestyle modifications including increased physical activity and dietary changes.';
-            } else {
-              recommendation = 'BMI indicates obesity. Recommend comprehensive weight management program, including nutrition counseling, regular exercise, and possibly referral to weight management specialist.';
-            }
+            recommendation = getBMIRecommendation(parseFloat(bmiValue));
           } 
           else if (question.type === 'vitalSigns') {
             // Format vital signs
-            const systolic = visit.responses[`${question.id}_systolic`];
-            const diastolic = visit.responses[`${question.id}_diastolic`];
-            const heartRate = visit.responses[`${question.id}_heartRate`];
+            const systolic = visitData.responses[`${question.id}_systolic`];
+            const diastolic = visitData.responses[`${question.id}_diastolic`];
+            const heartRate = visitData.responses[`${question.id}_heartRate`];
             
             let vitalSignsText = `BP: ${systolic}/${diastolic} mmHg, HR: ${heartRate} bpm`;
             
             // Add additional vital signs if available
-            if (visit.responses[`${question.id}_respiratoryRate`]) {
-              vitalSignsText += `, RR: ${visit.responses[`${question.id}_respiratoryRate`]} breaths/min`;
+            if (visitData.responses[`${question.id}_respiratoryRate`]) {
+              vitalSignsText += `, RR: ${visitData.responses[`${question.id}_respiratoryRate`]} breaths/min`;
             }
-            if (visit.responses[`${question.id}_temperature`]) {
-              vitalSignsText += `, Temp: ${visit.responses[`${question.id}_temperature`]}°F`;
+            if (visitData.responses[`${question.id}_temperature`]) {
+              vitalSignsText += `, Temp: ${visitData.responses[`${question.id}_temperature`]}°F`;
             }
-            if (visit.responses[`${question.id}_oxygenSaturation`]) {
-              vitalSignsText += `, O2: ${visit.responses[`${question.id}_oxygenSaturation`]}%`;
+            if (visitData.responses[`${question.id}_oxygenSaturation`]) {
+              vitalSignsText += `, O2: ${visitData.responses[`${question.id}_oxygenSaturation`]}%`;
             }
             
             formattedResponse = vitalSignsText;
             
             // Generate recommendation based on vital signs
-            let recommendations = [];
-            if (systolic && diastolic) {
-              if (systolic >= 180 || diastolic >= 120) {
-                recommendations.push('Blood pressure indicates hypertensive crisis. Immediate medical attention recommended.');
-              } else if (systolic >= 140 || diastolic >= 90) {
-                recommendations.push('Blood pressure indicates hypertension. Follow-up with primary care provider recommended.');
-              } else if (systolic >= 130 || diastolic >= 80) {
-                recommendations.push('Blood pressure indicates elevated/stage 1 hypertension. Lifestyle modifications recommended.');
-              }
-            }
-            
-            if (heartRate) {
-              if (heartRate > 100) {
-                recommendations.push('Heart rate is elevated. Monitor for symptoms and consider evaluation if persistent.');
-              } else if (heartRate < 60) {
-                recommendations.push('Heart rate is below normal range. Consider evaluation if symptomatic.');
-              }
-            }
-            
-            recommendation = recommendations.length > 0 ? recommendations.join(' ') : 'Vital signs are within normal ranges.';
+            recommendation = getVitalSignsRecommendation(
+              parseFloat(systolic), 
+              parseFloat(diastolic), 
+              parseFloat(heartRate)
+            );
           }
           else if (question.type === 'phq2') {
             // Format PHQ-2 result
-            const score = visit.responses[question.id];
-            const risk = visit.responses[`${question.id}_risk`];
+            const score = visitData.responses[question.id];
+            const risk = visitData.responses[`${question.id}_risk`];
             formattedResponse = `Score: ${score}/6 (Risk: ${risk})`;
             
             if (risk === 'High') {
@@ -500,8 +493,8 @@ function VisitReportPage() {
           }
           else if (question.type === 'cognitiveAssessment') {
             // Format cognitive assessment result
-            const score = visit.responses[question.id];
-            const risk = visit.responses[`${question.id}_risk`];
+            const score = visitData.responses[question.id];
+            const risk = visitData.responses[`${question.id}_risk`];
             const testType = question.config?.subtype === 'mmse' ? 'MMSE' : 'MoCA';
             formattedResponse = `${testType} Score: ${score}/30 (Risk: ${risk})`;
             
@@ -513,8 +506,8 @@ function VisitReportPage() {
           }
           else if (question.type === 'cageScreening') {
             // Format CAGE result
-            const score = visit.responses[question.id];
-            const risk = visit.responses[`${question.id}_risk`];
+            const score = visitData.responses[question.id];
+            const risk = visitData.responses[`${question.id}_risk`];
             formattedResponse = `Score: ${score}/4 (Risk: ${risk})`;
             
             if (risk === 'High') {
@@ -535,7 +528,7 @@ function VisitReportPage() {
               
               // Collect recommendations from all selected options
               const recommendations = [];
-              for (const respId of visit.responses[question.id]) {
+              for (const respId of visitData.responses[question.id]) {
                 const option = question.options?.find((opt: any) => opt.value === respId || opt.id === respId);
                 if (option && option.recommendation) {
                   recommendations.push(option.recommendation);
@@ -643,7 +636,7 @@ function VisitReportPage() {
           <div className="mb-8 border-b pb-6 border-gray-200">
             <div className="text-center mb-4">
               <h1 className="text-3xl font-bold mb-2 text-primary-600">Health Assessment Report</h1>
-              <p className="text-gray-600">Visit Date: {formatDate(visit.scheduledDate)}</p>
+              <p className="text-gray-600">Visit Date: {formatDate(visitData.scheduledDate)}</p>
             </div>
             
             <div className="flex flex-col md:flex-row md:justify-between md:items-center mt-6">
@@ -663,15 +656,15 @@ function VisitReportPage() {
               </div>
               
               <div className="flex items-center">
-                {visit.status && (
+                {visitData.status && (
                   <div className="mr-6">
                     <div className="text-sm text-gray-600 uppercase tracking-wide">Status</div>
                     <div className={`font-medium capitalize ${
-                      visit.status === 'completed' ? 'text-green-600' : 
-                      visit.status === 'scheduled' ? 'text-blue-600' : 
-                      visit.status === 'cancelled' ? 'text-red-600' : 'text-gray-600'
+                      visitData.status === 'completed' ? 'text-green-600' : 
+                      visitData.status === 'scheduled' ? 'text-blue-600' : 
+                      visitData.status === 'cancelled' ? 'text-red-600' : 'text-gray-600'
                     }`}>
-                      {visit.status}
+                      {visitData.status}
                     </div>
                   </div>
                 )}
@@ -679,8 +672,8 @@ function VisitReportPage() {
                 <div>
                   <div className="text-sm text-gray-600 uppercase tracking-wide">Provider</div>
                   <div className="font-medium">
-                    {visit.provider?.firstName && visit.provider?.lastName
-                      ? `${visit.provider.firstName} ${visit.provider.lastName}`
+                    {visitData.provider?.firstName && visitData.provider?.lastName
+                      ? `${visitData.provider.firstName} ${visitData.provider.lastName}`
                       : 'Not assigned'}
                   </div>
                 </div>
@@ -704,7 +697,7 @@ function VisitReportPage() {
           {renderHealthPlan()}
           
           {/* Assessment Findings */}
-          {template && visit.responses && Object.keys(visit.responses).length > 0 && (
+          {template && visitData.responses && Object.keys(visitData.responses).length > 0 && (
             <div className="mb-8">
               <h2 className="text-xl font-bold mb-4 pb-2 border-b text-primary-700 flex items-center">
                 <FiClipboard className="mr-2" /> Assessment Findings
@@ -714,7 +707,7 @@ function VisitReportPage() {
                 {template.sections.map((section: any) => {
                   // Check if there are any responses for this section
                   const sectionQuestionIds = section.questions.map((q: any) => q.id);
-                  const sectionHasResponses = sectionQuestionIds.some((id: string) => visit.responses[id] !== undefined);
+                  const sectionHasResponses = sectionQuestionIds.some((id: string) => visitData.responses[id] !== undefined);
                   
                   if (!sectionHasResponses) {
                     return null;
@@ -732,12 +725,12 @@ function VisitReportPage() {
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {section.questions.map((question: any) => {
-                          if (visit.responses[question.id] === undefined) {
+                          if (visitData.responses[question.id] === undefined) {
                             return null;
                           }
                           
                           let responseDisplay;
-                          const response = visit.responses[question.id];
+                          const response = visitData.responses[question.id];
                           
                           if (question.type === 'multipleChoice' && question.options) {
                             if (Array.isArray(response)) {
@@ -793,12 +786,12 @@ function VisitReportPage() {
           )}
           
           {/* Visit notes */}
-          {visit.notes && (
+          {visitData.notes && (
             <div className="mb-8 p-5 bg-gray-50 rounded-lg border border-gray-200">
               <h2 className="text-xl font-bold mb-2 text-primary-700 flex items-center">
                 <FiEdit className="mr-2" /> Provider Notes
               </h2>
-              <p className="whitespace-pre-line mt-2 text-gray-800">{visit.notes}</p>
+              <p className="whitespace-pre-line mt-2 text-gray-800">{visitData.notes}</p>
             </div>
           )}
           

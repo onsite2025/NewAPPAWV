@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import mongoose from 'mongoose';
 
+// Configuration for static export
+export const dynamic = 'force-dynamic';
+export const revalidate = 0; // This means always revalidate
+
 // Use the same Patient model from the main patients route
 const PatientSchema = new mongoose.Schema({
   firstName: { type: String, required: true },

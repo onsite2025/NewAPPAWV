@@ -10,13 +10,65 @@
   NEXTAUTH_URL = "https://finalawv.netlify.app"
   NEXTAUTH_SECRET = "your-nextauth-secret-key-here"
 
+# Post-processing configuration
+[build.processing]
+  skip_processing = true 
+
+# Functions configuration
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["mongodb", "mongoose", "next-auth", "bcryptjs"]
+  # All modules that should be treated as external (not bundled)
+  external_node_modules = [
+    "mongodb", 
+    "mongoose", 
+    "next-auth", 
+    "bcryptjs", 
+    "firebase", 
+    "firebase-admin"
+  ]
+  # Compress functions to reduce size
+  zip = true
+  # Files to generally exclude from all functions
+  excluded_files = [
+    "node_modules/**/*", 
+    "**/*.test.ts", 
+    "**/*.spec.ts", 
+    "**/*.md", 
+    "**/*.svg", 
+    "**/*.jpg", 
+    "**/*.png"
+  ]
+
+# Specific configuration for auth function
+[functions.auth]
+  included_files = [
+    "src/lib/auth.ts", 
+    "src/models/User.ts"
+  ]
+
+# Specific configuration for API function
+[functions.api]
+  included_files = [
+    "src/lib/mongodb.ts", 
+    "src/models/*.ts", 
+    "src/lib/auth.ts"
+  ]
+
+# Specific configuration for Next.js API function
+[functions.next-api]
+  included_files = [
+    "src/lib/mongodb.ts", 
+    "src/app/api/**/*.ts"
+  ]
+
+# Plugins
+[[plugins]]
+  package = "./netlify-plugins/build-plugin"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+# Redirects
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"

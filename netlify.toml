@@ -63,9 +63,6 @@
 
 # Plugins
 [[plugins]]
-  package = "./netlify-plugins/build-plugin"
-
-[[plugins]]
   package = "@netlify/plugin-nextjs"
 
 # Redirects

@@ -1,6 +1,6 @@
 [build]
   command = "npm run build"
-  publish = ".next"
+  publish = "out"
   functions = "netlify/functions"
 
 [build.environment]
@@ -28,16 +28,13 @@
   status = 200
   force = true
 
-# Handle SPA routing for Next.js
-[[redirects]]
-  from = "/*"
-  to = "/404.html"
-  status = 404
-
+# Handle SPA routing for Next.js (single rule, no conflicting redirects)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+  force = false
+  conditions = {Response = {status = [404]}}
 
 # Add headers for security and CORS
 [[headers]]

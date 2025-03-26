@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Output: 'export' for static site generation
-  output: 'standalone',
+  // Change from 'standalone' to standard output mode
+  // 'standalone' can sometimes cause issues with prerendering client components
+  output: 'export',
   
   // Enable experimental features for API routes
   experimental: {
@@ -48,6 +49,22 @@ const nextConfig = {
   swcMinify: true,
   compiler: {
     styledComponents: true,
+  },
+  
+  // Set a static build ID to improve caching
+  generateBuildId: async () => {
+    return 'awv-build'
+  },
+  
+  // Skip specific pages from static generation
+  exportPathMap: async function (
+    defaultPathMap,
+    { dev, dir, outDir, distDir, buildId }
+  ) {
+    return {
+      ...defaultPathMap,
+      '/register': { page: '/register' },
+    }
   }
 };
 

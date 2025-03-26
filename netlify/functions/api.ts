@@ -481,6 +481,143 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
       }
     }
 
+    // Add a test endpoint to create a test user
+    if (path === '/test-create-user') {
+      try {
+        await connectToMongoDB();
+        const { User } = getModels();
+        
+        // Create a test user with all required fields
+        const testUser = new User({
+          email: `test-user-${Date.now()}@example.com`,
+          password: 'test-password-123',
+          name: 'Test User Created Via Endpoint',
+          role: 'staff',
+          status: 'active',
+          phone: '555-123-4567',
+          title: 'Test Title',
+          createdAt: new Date()
+        });
+        
+        console.log('About to save test user:', JSON.stringify(testUser, null, 2));
+        
+        const savedUser = await testUser.save();
+        
+        console.log('Successfully created test user with ID:', savedUser._id);
+        
+        // Return success response
+        return {
+          statusCode: 201,
+          body: JSON.stringify({
+            success: true,
+            message: 'Test user created successfully',
+            user: {
+              id: savedUser._id.toString(),
+              email: savedUser.email,
+              name: savedUser.name,
+              role: savedUser.role,
+              collection: User.collection.name
+            }
+          }),
+          headers: createHeaders()
+        };
+      } catch (error) {
+        console.error('Error creating test user:', error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            success: false,
+            error: 'Failed to create test user',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          }),
+          headers: createHeaders()
+        };
+      }
+    }
+
+    // Add a diagnostic endpoint for debugging user creation
+    if (path === '/debug-user-creation') {
+      try {
+        // Parse the request body
+        const body = JSON.parse(event.body || '{}');
+        
+        // Log the parsed request body
+        console.log('Received request body for user creation:', JSON.stringify(body, null, 2));
+        
+        // Check for required fields
+        const requiredFields = ['email', 'name'];
+        const missingFields = requiredFields.filter(field => !body[field]);
+        
+        // Check field types
+        const fieldTypes = {
+          email: 'string',
+          name: 'string',
+          role: 'string',
+          password: 'string'
+        };
+        
+        const fieldTypeIssues = Object.entries(fieldTypes)
+          .filter(([field, expectedType]) => 
+            body[field] !== undefined && typeof body[field] !== expectedType
+          )
+          .map(([field, expectedType]) => 
+            `${field} should be ${expectedType}, got ${typeof body[field]}`
+          );
+        
+        // Try validating against Mongoose schema
+        await connectToMongoDB();
+        const { User } = getModels();
+        
+        // Create a user document but don't save it
+        const userDoc = new User({
+          ...body,
+          // Add a password if missing
+          password: body.password || 'temp-password-123',
+        });
+        
+        let validationErrors: any = null;
+        try {
+          // Just validate without saving
+          await userDoc.validate();
+        } catch (validationError) {
+          validationErrors = validationError;
+          console.error('User validation error:', validationError);
+        }
+        
+        // Return diagnostic information
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            success: true,
+            diagnostics: {
+              receivedData: body,
+              missingRequiredFields: missingFields,
+              fieldTypeIssues,
+              validationErrors: validationErrors 
+                ? { message: validationErrors.message, errors: validationErrors.errors }
+                : null,
+              schemaFields: Object.keys(User.schema.paths),
+              requiredSchemaFields: Object.entries(User.schema.paths)
+                .filter(([_, path]: [string, any]) => path.isRequired)
+                .map(([field, _]: [string, any]) => field)
+            }
+          }),
+          headers: createHeaders()
+        };
+      } catch (error) {
+        console.error('Error in user creation diagnostics:', error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            success: false,
+            error: 'Diagnostic error',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          }),
+          headers: createHeaders()
+        };
+      }
+    }
+
     // Log request details
     console.log('Processing request:', {
       method: event.httpMethod,
@@ -805,10 +942,15 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
           try {
             // Parse the request body
             const body = JSON.parse(event.body || '{}');
-            console.log('Received user creation request with data:', body);
+            console.log('Received user creation request with data:', JSON.stringify(body, null, 2));
+            
+            // Check for different data formats - UI might be sending data differently
+            // Some UIs wrap the user data in a 'user' or 'data' field
+            const userData = body.user || body.data || body;
+            console.log('Extracted user data:', JSON.stringify(userData, null, 2));
             
             // Validate required fields
-            if (!body.email || !body.name) {
+            if (!userData.email || !userData.name) {
               console.log('Missing required fields for user creation');
               return {
                 statusCode: 400,
@@ -824,9 +966,9 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
             const newUserId = Date.now().toString();
             const newUser = {
               id: newUserId,
-              email: body.email,
-              name: body.name,
-              role: body.role || 'staff',
+              email: userData.email,
+              name: userData.name,
+              role: userData.role || 'staff',
               status: 'pending',
               createdAt: new Date().toISOString()
             };
@@ -843,9 +985,9 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
               console.log('User model initialized with collection:', User.collection.name);
               
               // Check if user already exists
-              const existingUser = await User.findOne({ email: body.email });
+              const existingUser = await User.findOne({ email: userData.email });
               if (existingUser) {
-                console.log('User with this email already exists:', body.email);
+                console.log('User with this email already exists:', userData.email);
                 return {
                   statusCode: 409,
                   body: JSON.stringify({
@@ -858,18 +1000,18 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
               
               // Create a proper user document for MongoDB
               const userDoc = new User({
-                email: body.email,
+                email: userData.email,
                 // Generate a temporary password since it's required by the schema
                 password: 'temp' + Date.now(), // This would be hashed in a real app
-                name: body.name,
-                role: body.role || 'staff',
+                name: userData.name,
+                role: userData.role || 'staff',
                 status: 'pending',
                 createdAt: new Date(),
                 // Store other fields from body if they exist
-                ...(body.phone && { phone: body.phone }),
-                ...(body.title && { title: body.title }),
-                ...(body.specialty && { specialty: body.specialty }),
-                ...(body.npi && { npi: body.npi })
+                ...(userData.phone && { phone: userData.phone }),
+                ...(userData.title && { title: userData.title }),
+                ...(userData.specialty && { specialty: userData.specialty }),
+                ...(userData.npi && { npi: userData.npi })
               });
               
               console.log('User document created, about to save:', JSON.stringify(userDoc, null, 2));
@@ -899,18 +1041,18 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
                   try {
                     // Create Firebase Auth user with email and a temporary password
                     const firebaseUser = await admin.auth().createUser({
-                      email: body.email,
+                      email: userData.email,
                       emailVerified: false,
                       password: 'Temp' + Date.now() + '!', // Temporary password that meets requirements
-                      displayName: body.name,
-                      disabled: body.status === 'pending' // Disable if pending
+                      displayName: userData.name,
+                      disabled: userData.status === 'pending' // Disable if pending
                     });
                     
                     console.log('Created Firebase user successfully with UID:', firebaseUser.uid);
                     
                     // Add custom claims for role
                     await admin.auth().setCustomUserClaims(firebaseUser.uid, {
-                      role: body.role || 'staff'
+                      role: userData.role || 'staff'
                     });
                     
                     // Update the user with Firebase UID

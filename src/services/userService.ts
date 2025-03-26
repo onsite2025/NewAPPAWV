@@ -274,28 +274,11 @@ const userService = {
     }
   },
   
-  // Send an invitation to a new user (admin only)
+  // Send an invitation to a new user (admin only) - DISABLED
   sendInvitation: async (inviteData: IUserInvite): Promise<{ success: boolean; message: string }> => {
-    try {
-      console.log('Sending invitation to:', inviteData);
-      const response = await fetch(`${BASE_URL}/users/invite`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(inviteData),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to send invitation');
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error sending invitation:', error);
-      throw error;
-    }
+    // This functionality is disabled
+    console.log('Invitation functionality is disabled');
+    throw new Error('Invitation functionality is currently disabled');
   },
   
   // Get current user's role

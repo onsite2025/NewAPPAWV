@@ -1980,134 +1980,15 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
       }
     }
 
-    // Handle invitation creation endpoint
+    // Handle invitation creation endpoint - DISABLED
     if (path === '/invitations') {
       try {
-        // Only allow POST for creating invitations
-        if (event.httpMethod === 'POST') {
-          const body = JSON.parse(event.body || '{}');
-          
-          // Validate required fields
-          if (!body.email) {
-            return {
-              statusCode: 400,
-              body: JSON.stringify({
-                success: false,
-                error: 'Email is required for invitation'
-              }),
-              headers: createHeaders()
-            };
-          }
-          
-          // Connect to MongoDB
-          await connectToMongoDB();
-          const { Invitation, User } = getModels();
-          
-          // Check if user already exists
-          const existingUser = await User.findOne({ email: body.email });
-          if (existingUser) {
-            return {
-              statusCode: 409,
-              body: JSON.stringify({
-                success: false,
-                error: 'User with this email already exists'
-              }),
-              headers: createHeaders()
-            };
-          }
-          
-          // Check if invitation already exists
-          const existingInvitation = await Invitation.findOne({ email: body.email, used: false });
-          if (existingInvitation) {
-            // Return existing invitation
-            return {
-              statusCode: 200,
-              body: JSON.stringify({
-                success: true,
-                message: 'Invitation already exists',
-                data: {
-                  email: existingInvitation.email,
-                  token: existingInvitation.token,
-                  expiresAt: existingInvitation.expiresAt
-                }
-              }),
-              headers: createHeaders()
-            };
-          }
-          
-          // Create a new invitation token
-          const token = generateToken();
-          
-          // Set expiration date (24 hours from now)
-          const expiresAt = new Date();
-          expiresAt.setHours(expiresAt.getHours() + 24);
-          
-          // Create the invitation record
-          const invitation = new Invitation({
-            email: body.email,
-            token: token,
-            role: body.role || 'staff',
-            invitedBy: body.invitedBy || 'system',
-            expiresAt: expiresAt,
-            createdAt: new Date()
-          });
-          
-          // Save to database
-          await invitation.save();
-          
-          // In a real app, you would send an email here
-          console.log(`Invitation created for ${body.email} with token ${token}`);
-          
-          // Return success response
-          return {
-            statusCode: 201,
-            body: JSON.stringify({
-              success: true,
-              message: 'Invitation created successfully',
-              data: {
-                email: invitation.email,
-                token: invitation.token,
-                expiresAt: invitation.expiresAt,
-                inviteLink: `https://tesatawv.netlify.app/register?token=${token}&email=${encodeURIComponent(invitation.email)}`
-              }
-            }),
-            headers: createHeaders()
-          };
-        }
-        
-        // Handle GET for listing invitations
-        if (event.httpMethod === 'GET') {
-          // Connect to MongoDB
-          await connectToMongoDB();
-          const { Invitation } = getModels();
-          
-          // Fetch active invitations
-          const invitations = await Invitation.find({ used: false }).sort({ createdAt: -1 });
-          
-          // Return invitations list
-          return {
-            statusCode: 200,
-            body: JSON.stringify({
-              success: true,
-              data: invitations.map(inv => ({
-                id: inv._id,
-                email: inv.email,
-                token: inv.token,
-                role: inv.role,
-                createdAt: inv.createdAt,
-                expiresAt: inv.expiresAt,
-                inviteLink: `https://tesatawv.netlify.app/register?token=${inv.token}&email=${encodeURIComponent(inv.email)}`
-              }))
-            }),
-            headers: createHeaders()
-          };
-        }
-        
+        // Return an error response indicating this feature is disabled
         return {
-          statusCode: 405,
+          statusCode: 503,
           body: JSON.stringify({
             success: false,
-            error: 'Method not allowed'
+            error: 'Invitation functionality is currently disabled'
           }),
           headers: createHeaders()
         };
@@ -2117,7 +1998,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
           statusCode: 500,
           body: JSON.stringify({
             success: false,
-            error: 'Failed to process invitation',
+            error: 'Failed to process request',
             details: error instanceof Error ? error.message : 'Unknown error'
           }),
           headers: createHeaders()
@@ -2125,232 +2006,28 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
       }
     }
     
-    // Verify invitation token
+    // Handle verify-invitation endpoint - DISABLED
     if (path === '/verify-invitation') {
-      try {
-        // Parse parameters
-        const token = event.queryStringParameters?.token;
-        const email = event.queryStringParameters?.email;
-        
-        if (!token || !email) {
-          return {
-            statusCode: 400,
-            body: JSON.stringify({
-              success: false,
-              error: 'Token and email are required'
-            }),
-            headers: createHeaders()
-          };
-        }
-        
-        // Connect to MongoDB
-        await connectToMongoDB();
-        const { Invitation } = getModels();
-        
-        // Find the invitation
-        const invitation = await Invitation.findOne({
-          email: email,
-          token: token,
-          used: false
-        });
-        
-        if (!invitation) {
-          return {
-            statusCode: 404,
-            body: JSON.stringify({
-              success: false,
-              error: 'Invalid or expired invitation'
-            }),
-            headers: createHeaders()
-          };
-        }
-        
-        // Check if invitation has expired
-        if (new Date() > new Date(invitation.expiresAt)) {
-          return {
-            statusCode: 400,
-            body: JSON.stringify({
-              success: false,
-              error: 'Invitation has expired'
-            }),
-            headers: createHeaders()
-          };
-        }
-        
-        // Invitation is valid
-        return {
-          statusCode: 200,
-          body: JSON.stringify({
-            success: true,
-            data: {
-              email: invitation.email,
-              role: invitation.role,
-              expiresAt: invitation.expiresAt
-            }
-          }),
-          headers: createHeaders()
-        };
-      } catch (error) {
-        console.error('Error verifying invitation:', error);
-        return {
-          statusCode: 500,
-          body: JSON.stringify({
-            success: false,
-            error: 'Failed to verify invitation',
-            details: error instanceof Error ? error.message : 'Unknown error'
-          }),
-          headers: createHeaders()
-        };
-      }
+      return {
+        statusCode: 503,
+        body: JSON.stringify({
+          success: false,
+          error: 'Invitation verification is currently disabled'
+        }),
+        headers: createHeaders()
+      };
     }
     
-    // Register user with invitation
+    // Handle register-with-invitation endpoint - DISABLED
     if (path === '/register-with-invitation') {
-      try {
-        if (event.httpMethod !== 'POST') {
-          return {
-            statusCode: 405,
-            body: JSON.stringify({
-              success: false,
-              error: 'Method not allowed'
-            }),
-            headers: createHeaders()
-          };
-        }
-        
-        // Parse request body
-        const body = JSON.parse(event.body || '{}');
-        
-        // Check required fields
-        if (!body.token || !body.email || !body.password || !body.name) {
-          return {
-            statusCode: 400,
-            body: JSON.stringify({
-              success: false,
-              error: 'Token, email, password, and name are required'
-            }),
-            headers: createHeaders()
-          };
-        }
-        
-        // Connect to MongoDB
-        await connectToMongoDB();
-        const { Invitation, User } = getModels();
-        
-        // Find and validate the invitation
-        const invitation = await Invitation.findOne({
-          email: body.email,
-          token: body.token,
-          used: false
-        });
-        
-        if (!invitation) {
-          return {
-            statusCode: 404,
-            body: JSON.stringify({
-              success: false,
-              error: 'Invalid or expired invitation'
-            }),
-            headers: createHeaders()
-          };
-        }
-        
-        // Check if invitation has expired
-        if (new Date() > new Date(invitation.expiresAt)) {
-          return {
-            statusCode: 400,
-            body: JSON.stringify({
-              success: false,
-              error: 'Invitation has expired'
-            }),
-            headers: createHeaders()
-          };
-        }
-        
-        // Check if user already exists
-        const existingUser = await User.findOne({ email: body.email });
-        if (existingUser) {
-          return {
-            statusCode: 409,
-            body: JSON.stringify({
-              success: false,
-              error: 'User with this email already exists'
-            }),
-            headers: createHeaders()
-          };
-        }
-        
-        // Create the user
-        const user = new User({
-          email: body.email,
-          password: body.password, // Should be hashed in production
-          name: body.name,
-          role: invitation.role,
-          isActive: true,
-          createdAt: new Date()
-        });
-        
-        // Save the user
-        await user.save();
-        
-        // Mark invitation as used
-        invitation.used = true;
-        await invitation.save();
-        
-        // Try to create Firebase user if Firebase is available
-        try {
-          const firebaseInitialized = await initializeFirebase();
-          if (firebaseInitialized && admin) {
-            console.log('Creating Firebase user for invited user');
-            const firebaseUser = await admin.auth().createUser({
-              email: body.email,
-              password: body.password,
-              displayName: body.name,
-              emailVerified: true // Since they clicked the invitation link
-            });
-            
-            // Set custom claims for role
-            await admin.auth().setCustomUserClaims(firebaseUser.uid, {
-              role: invitation.role
-            });
-            
-            // Update user with Firebase UID
-            user.firebaseUid = firebaseUser.uid;
-            await user.save();
-            
-            console.log('Firebase user created for invited user:', firebaseUser.uid);
-          }
-        } catch (firebaseError) {
-          console.error('Failed to create Firebase user:', firebaseError);
-        }
-        
-        // Return success
-        return {
-          statusCode: 201,
-          body: JSON.stringify({
-            success: true,
-            message: 'User registered successfully',
-            data: {
-              id: user._id,
-              email: user.email,
-              name: user.name,
-              role: user.role
-            }
-          }),
-          headers: createHeaders()
-        };
-      } catch (error) {
-        console.error('Error registering user with invitation:', error);
-        return {
-          statusCode: 500,
-          body: JSON.stringify({
-            success: false,
-            error: 'Failed to register user',
-            details: error instanceof Error ? error.message : 'Unknown error'
-          }),
-          headers: createHeaders()
-        };
-      }
+      return {
+        statusCode: 503,
+        body: JSON.stringify({
+          success: false,
+          error: 'Registration functionality is currently disabled'
+        }),
+        headers: createHeaders()
+      };
     }
 
     // Handle user profile endpoint

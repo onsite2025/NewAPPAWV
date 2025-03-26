@@ -16,18 +16,18 @@ export default function RegisterPage() {
         <div className="text-center">
           <h1 className="text-3xl font-bold">Registration</h1>
           <p className="mt-2 text-gray-600">
-            Registration is only available through invitation
+            Registration functionality is currently disabled
           </p>
         </div>
         
         <div className="bg-white p-8 rounded-lg shadow-md">
           <div className="text-center space-y-4">
             <div className="text-gray-700 text-xl">
-              Registration is only available through invitation links sent by administrators.
+              Registration is currently disabled
             </div>
             <p className="text-gray-500">
-              If you received an invitation email, please use the link provided in that email.
-              If you need an invitation, please contact your administrator.
+              The invitation and registration functionality has been temporarily disabled.
+              Please contact the administrator for assistance.
             </p>
             <div className="mt-4">
               <Link href="/login" className="text-blue-600 hover:text-blue-800">

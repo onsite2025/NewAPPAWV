@@ -9,11 +9,6 @@ import { Button } from '@/components/ui/button';
 import { UserPlus } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
-// Dynamically import the InviteUserButton component
-const InviteUserButton = dynamic(() => import('./components/InviteUserButton'), {
-  loading: () => <Button disabled>Loading...</Button>
-});
-
 export default function UsersPage() {
   return (
     <div className="p-6 space-y-4">
@@ -32,11 +27,6 @@ export default function UsersPage() {
             <span>Add User</span>
           </Button>
         </Link>
-        
-        {/* Add the invite user button */}
-        <Suspense fallback={<Button disabled>Loading...</Button>}>
-          <InviteUserButton />
-        </Suspense>
       </div>
       
       <div className="bg-white p-4 rounded-lg shadow">

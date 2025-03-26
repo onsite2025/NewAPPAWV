@@ -17,6 +17,12 @@ if (!MONGODB_URI) {
   throw new Error('MONGODB_URI environment variable is not defined');
 }
 
+// In-memory storage for newly created users (this will persist until the function is redeployed)
+const newUsers: Record<string, any> = {};
+
+// In-memory storage for practice settings (this will persist until the function is redeployed)
+let practiceSettings: any = null;
+
 const connectToMongoDB = async () => {
   try {
     // Check if we're already connected
@@ -377,6 +383,9 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
             }
           ];
           
+          // Add newly created users to the list
+          const allUsers = [...mockUsers, ...Object.values(newUsers)];
+          
           // Parse query parameters for pagination if provided
           const page = parseInt(event.queryStringParameters?.page || '1');
           const limit = parseInt(event.queryStringParameters?.limit || '10');
@@ -386,12 +395,12 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
             body: JSON.stringify({
               success: true,
               data: {
-                users: mockUsers,
+                users: allUsers,
                 pagination: {
-                  total: mockUsers.length,
+                  total: allUsers.length,
                   page: page,
                   limit: limit,
-                  pages: Math.ceil(mockUsers.length / limit)
+                  pages: Math.ceil(allUsers.length / limit)
                 }
               }
             }),
@@ -417,18 +426,24 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
             }
             
             // Create a mock successful response
+            const newUserId = Date.now().toString();
+            const newUser = {
+              id: newUserId,
+              email: body.email,
+              name: body.name,
+              role: body.role || 'staff',
+              status: 'pending',
+              createdAt: new Date().toISOString()
+            };
+            
+            // Store the new user in our in-memory storage
+            newUsers[newUserId] = newUser;
+            
             return {
               statusCode: 201,
               body: JSON.stringify({
                 success: true,
-                data: {
-                  id: Date.now().toString(),
-                  email: body.email,
-                  name: body.name,
-                  role: body.role || 'staff',
-                  status: 'pending',
-                  createdAt: new Date().toISOString()
-                }
+                data: newUser
               }),
               headers: createHeaders()
             };
@@ -467,7 +482,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
     }
 
     // Handle individual user requests (/users/:id)
-    if (path.match(/^\/users\/\d+$/)) {
+    if (path.match(/^\/users\/[^\/]+$/)) {
       try {
         // Extract the user ID from the path
         const userId = path.split('/')[2];
@@ -518,8 +533,8 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
         
         // Handle different HTTP methods
         if (event.httpMethod === 'GET') {
-          // Retrieve the user
-          const user = mockUsers[userId];
+          // Check both mock users and newly created users
+          const user = mockUsers[userId] || newUsers[userId];
           
           if (!user) {
             return {
@@ -543,8 +558,8 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
         }
         
         else if (event.httpMethod === 'PUT') {
-          // Update the user
-          const user = mockUsers[userId];
+          // Update the user - check both mock users and newly created users
+          let user = mockUsers[userId] || newUsers[userId];
           
           if (!user) {
             return {
@@ -561,14 +576,20 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
             // Parse the request body
             const body = JSON.parse(event.body || '{}');
             
-            // Update the user (in a real app, this would update in the database)
+            // Update the user (in our in-memory objects)
             const updatedUser = {
               ...user,
               ...body,
               updatedAt: new Date().toISOString()
             };
             
-            // For demo purposes - pretend we updated the user
+            // Update in the appropriate storage (mock or new users)
+            if (mockUsers[userId]) {
+              mockUsers[userId] = updatedUser;
+            } else {
+              newUsers[userId] = updatedUser;
+            }
+            
             console.log('Updated user:', updatedUser);
             
             return {
@@ -647,7 +668,20 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
       try {
         // Handle GET requests - return practice settings
         if (event.httpMethod === 'GET') {
-          // Return static practice settings for demo purposes
+          // Return stored practice settings if available, otherwise use defaults
+          if (practiceSettings) {
+            console.log('Returning stored practice settings');
+            return {
+              statusCode: 200,
+              body: JSON.stringify({
+                success: true,
+                data: practiceSettings
+              }),
+              headers: createHeaders()
+            };
+          }
+          
+          // Default settings
           const demoSettings = {
             name: 'Oak Ridge Healthcare Center',
             address: {
@@ -673,6 +707,9 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
               daysOpen: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
             }
           };
+          
+          // Store default settings
+          practiceSettings = demoSettings;
           
           return {
             statusCode: 200,
@@ -704,23 +741,26 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
               };
             }
             
-            // For demo, reflect back the data that was sent, with some defaults for missing fields
+            // Update stored settings
             const updatedSettings = {
-              name: practiceData.name || 'Oak Ridge Healthcare Center',
-              address: practiceData.address || '123 Medical Way',
-              city: practiceData.city || 'Oak Ridge',
-              state: practiceData.state || 'TN',
-              zipCode: practiceData.zipCode || '37830',
-              phone: practiceData.phone || '(555) 123-4567',
-              email: practiceData.email || 'info@oakridgehealthcare.example',
-              website: practiceData.website || 'www.oakridgehealthcare.example',
-              logo: practiceData.logo || '/logo.png',
-              primaryColor: practiceData.primaryColor || '#0047AB',
-              secondaryColor: practiceData.secondaryColor || '#6CB4EE',
-              appointmentDuration: practiceData.appointmentDuration || 30,
-              startTime: practiceData.startTime || '09:00',
-              endTime: practiceData.endTime || '17:00'
+              name: practiceData.name || (practiceSettings?.name || 'Oak Ridge Healthcare Center'),
+              address: practiceData.address || (practiceSettings?.address || '123 Medical Way'),
+              city: practiceData.city || (practiceSettings?.city || 'Oak Ridge'),
+              state: practiceData.state || (practiceSettings?.state || 'TN'),
+              zipCode: practiceData.zipCode || (practiceSettings?.zipCode || '37830'),
+              phone: practiceData.phone || (practiceSettings?.phone || '(555) 123-4567'),
+              email: practiceData.email || (practiceSettings?.email || 'info@oakridgehealthcare.example'),
+              website: practiceData.website || (practiceSettings?.website || 'www.oakridgehealthcare.example'),
+              logo: practiceData.logo || (practiceSettings?.logo || '/logo.png'),
+              primaryColor: practiceData.primaryColor || (practiceSettings?.primaryColor || '#0047AB'),
+              secondaryColor: practiceData.secondaryColor || (practiceSettings?.secondaryColor || '#6CB4EE'),
+              appointmentDuration: practiceData.appointmentDuration || (practiceSettings?.appointmentDuration || 30),
+              startTime: practiceData.startTime || (practiceSettings?.startTime || '09:00'),
+              endTime: practiceData.endTime || (practiceSettings?.endTime || '17:00')
             };
+            
+            // Store the updated settings
+            practiceSettings = updatedSettings;
             
             console.log('Saving practice settings:', updatedSettings);
             

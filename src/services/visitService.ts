@@ -226,33 +226,18 @@ const visitService = {
           console.error('Empty or invalid response data:', data);
           throw new ApiError('Empty or invalid response data', 500);
         }
+
+        // First check for the nested structure (which is what Netlify functions return)
+        if (data.success === true && data.data && typeof data.data === 'object') {
+          console.log('Found visit in nested data structure');
+          data = data.data;
+        }
         
         // Be more flexible with ID field - it could be _id, id, or visitId
         const visitId = data._id || data.id || data.visitId;
         if (!visitId) {
           console.error('Invalid visit data - missing ID field:', data);
-          
-          // If data contains error information, use that instead
-          if (data.error) {
-            throw new ApiError(data.error, data.status || 500);
-          }
-          
-          // For Netlify environment: If the response appears to be an object with data property
-          // that contains the actual visit data (common API wrapper pattern)
-          if (data.data && typeof data.data === 'object') {
-            const nestedData = data.data;
-            const nestedId = nestedData._id || nestedData.id || nestedData.visitId;
-            
-            if (nestedId) {
-              console.log('Found visit ID in nested data structure');
-              // Use the nested data instead
-              data = nestedData;
-            } else {
-              throw new ApiError('Visit data is incomplete or invalid (nested structure)', 500);
-            }
-          } else {
-            throw new ApiError('Visit data is incomplete or invalid', 500);
-          }
+          throw new ApiError('Visit data is incomplete or invalid', 500);
         }
         
         // If we reach here, ensure the _id field exists 
@@ -277,6 +262,7 @@ const visitService = {
           data.responses = {};
         }
         
+        console.log('Visit data loaded:', data);
         return data;
       } catch (error: any) {
         if (error instanceof ApiError) throw error;

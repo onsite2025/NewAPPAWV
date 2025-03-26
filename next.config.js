@@ -2,53 +2,6 @@
 const fs = require('fs');
 const path = require('path');
 
-// Function to ensure critical files exist after build
-const ensureCriticalFiles = () => {
-  const outDir = path.join(__dirname, 'out');
-  
-  // Create out directory if it doesn't exist
-  if (!fs.existsSync(outDir)) {
-    fs.mkdirSync(outDir, { recursive: true });
-  }
-  
-  // Create index.html if missing
-  const indexPath = path.join(outDir, 'index.html');
-  if (!fs.existsSync(indexPath)) {
-    fs.writeFileSync(indexPath, `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8">
-          <meta http-equiv="refresh" content="0;url=/" />
-          <title>Annual Wellness Visit</title>
-        </head>
-        <body>
-          <p>Please wait while we redirect you...</p>
-        </body>
-      </html>
-    `);
-  }
-  
-  // Create 404.html if missing
-  const notFoundPath = path.join(outDir, '404.html');
-  if (!fs.existsSync(notFoundPath)) {
-    fs.writeFileSync(notFoundPath, `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Page Not Found</title>
-        </head>
-        <body>
-          <h1>Page Not Found</h1>
-          <p>The page you are looking for does not exist.</p>
-          <a href="/">Go Home</a>
-        </body>
-      </html>
-    `);
-  }
-};
-
 const nextConfig = {
   // Static export mode for Netlify deployment
   output: 'export',
@@ -95,22 +48,7 @@ const nextConfig = {
   },
   
   // Use trailing slash for better static hosting
-  trailingSlash: true,
-  
-  // Define which routes should be excluded from static generation
-  // They will be handled by Netlify serverless functions
-  exportPathMap: async function(defaultPathMap) {
-    // Filter out API routes
-    const filteredMap = {};
-    
-    for (const [path, page] of Object.entries(defaultPathMap)) {
-      if (!path.startsWith('/api/')) {
-        filteredMap[path] = page;
-      }
-    }
-    
-    return filteredMap;
-  }
+  trailingSlash: true
 };
 
 module.exports = nextConfig; 

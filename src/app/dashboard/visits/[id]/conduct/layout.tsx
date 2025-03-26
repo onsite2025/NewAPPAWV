@@ -1,5 +1,4 @@
-'use client';
-
+// Server Component - no 'use client' directive
 import ErrorBoundary from '@/components/ErrorBoundary';
 
 // This function is required for static site generation with dynamic routes

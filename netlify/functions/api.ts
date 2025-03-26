@@ -35,7 +35,21 @@ const UserSchema = new mongoose.Schema({
   phone: String,
   title: String,
   specialty: String,
-  npi: String
+  npi: String,
+  firebaseUid: String
+}, { 
+  // This ensures _id is also available as a string in id field
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
+
+// Add a pre-save hook to ensure id is set
+UserSchema.pre('save', function(next) {
+  // If no id is set, use _id as the id
+  if (!this.id) {
+    this.id = this._id.toString();
+  }
+  next();
 });
 
 const PracticeSettingsSchema = new mongoose.Schema({
@@ -64,6 +78,16 @@ const PracticeSettingsSchema = new mongoose.Schema({
   },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
+}, {
+  // Convert _id to string when returned as JSON
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
+
+// Update timestamp on save
+PracticeSettingsSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
 });
 
 // Initialize models
@@ -71,6 +95,31 @@ const getModels = () => {
   const User = mongoose.models.User || mongoose.model('User', UserSchema);
   const PracticeSettings = mongoose.models.PracticeSettings || mongoose.model('PracticeSettings', PracticeSettingsSchema);
   return { User, PracticeSettings };
+};
+
+// Connect to MongoDB and test connection
+const testMongoDBConnection = async () => {
+  try {
+    await connectToMongoDB();
+    console.log('MongoDB connection test successful');
+    
+    // Test creating a simple document
+    const TestSchema = new mongoose.Schema({
+      name: String,
+      timestamp: { type: Date, default: Date.now }
+    });
+    
+    const TestModel = mongoose.models.Test || mongoose.model('Test', TestSchema);
+    
+    const testDoc = new TestModel({ name: 'connection_test' });
+    await testDoc.save();
+    console.log('Successfully saved test document to MongoDB');
+    
+    return true;
+  } catch (error) {
+    console.error('MongoDB connection or test save failed:', error);
+    return false;
+  }
 };
 
 const connectToMongoDB = async () => {
@@ -92,6 +141,9 @@ const connectToMongoDB = async () => {
         });
       });
     }
+
+    console.log('Attempting to connect to MongoDB with URI:', 
+      MONGODB_URI ? `${MONGODB_URI.substring(0, 15)}...` : 'undefined');
 
     // Connect to MongoDB
     await mongoose.connect(MONGODB_URI, {
@@ -193,26 +245,108 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
     const path = event.path.replace('/.netlify/functions/api', '');
     
     // Add a test endpoint to verify MongoDB connection
-    if (path === '/test-connection') {
+    if (path === '/test-mongodb') {
       try {
-        await connectToMongoDB();
+        console.log('Testing MongoDB connection and document creation...');
+        const connectionResult = await testMongoDBConnection();
+        
+        // Test saving to Users collection
+        let userTestSuccess = false;
+        let practiceTestSuccess = false;
+        
+        if (connectionResult) {
+          try {
+            await connectToMongoDB();
+            const { User, PracticeSettings } = getModels();
+            
+            // Test creating a user
+            const testUser = new User({
+              email: `test-${Date.now()}@example.com`,
+              name: 'Test User',
+              role: 'staff',
+              status: 'active',
+              createdAt: new Date()
+            });
+            
+            await testUser.save();
+            console.log('Successfully saved test user to MongoDB:', testUser._id);
+            userTestSuccess = true;
+            
+            // Test creating practice settings
+            const testSettings = new PracticeSettings({
+              name: 'Test Practice',
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+            
+            await testSettings.save();
+            console.log('Successfully saved test practice settings to MongoDB:', testSettings._id);
+            practiceTestSuccess = true;
+          } catch (collectionError) {
+            console.error('Error testing collections:', collectionError);
+          }
+        }
+        
         return {
           statusCode: 200,
           body: JSON.stringify({ 
-            status: 'success',
-            message: 'MongoDB connection is working',
+            status: connectionResult ? 'success' : 'error',
+            details: {
+              connection: connectionResult ? 'Connected to MongoDB' : 'Failed to connect to MongoDB',
+              userCollection: userTestSuccess ? 'User document created successfully' : 'Failed to create user document',
+              practiceSettings: practiceTestSuccess ? 'Practice settings created successfully' : 'Failed to create practice settings',
+            },
             timestamp: new Date().toISOString()
           }),
           headers: createHeaders()
         };
       } catch (error) {
-        console.error('❌ MongoDB connection test failed:', error);
+        console.error('❌ MongoDB test failed:', error);
         return {
           statusCode: 500,
           body: JSON.stringify({ 
-            error: 'Database connection failed',
+            error: 'Database test failed',
             details: error instanceof Error ? error.message : 'Unknown error',
             timestamp: new Date().toISOString()
+          }),
+          headers: createHeaders()
+        };
+      }
+    }
+
+    // Add a simple MongoDB test endpoint
+    if (path === '/mongo-test') {
+      try {
+        await connectToMongoDB();
+        
+        // Create test schemas
+        const TestModel = mongoose.models.TestCollection || 
+          mongoose.model('TestCollection', new mongoose.Schema({
+            name: String,
+            createdAt: { type: Date, default: Date.now }
+          }));
+        
+        // Create and save a test document
+        const testDocument = new TestModel({ name: `test-${Date.now()}` });
+        const savedDoc = await testDocument.save();
+        
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            success: true,
+            message: 'MongoDB connection and save test successful',
+            testId: savedDoc._id.toString(),
+            mongoUrl: MONGODB_URI ? MONGODB_URI.substring(0, MONGODB_URI.indexOf('@')) + '@[hidden]' : 'undefined'
+          }),
+          headers: createHeaders()
+        };
+      } catch (error) {
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            success: false,
+            error: 'MongoDB test failed',
+            details: error instanceof Error ? error.message : 'Unknown error'
           }),
           headers: createHeaders()
         };
@@ -588,10 +722,27 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
                 };
               }
               
-              // Save to MongoDB
-              const userDoc = new User(newUser);
+              // Create a proper user document for MongoDB
+              const userDoc = new User({
+                email: body.email,
+                name: body.name,
+                role: body.role || 'staff',
+                status: 'pending',
+                createdAt: new Date(),
+                // Store other fields from body if they exist
+                ...(body.phone && { phone: body.phone }),
+                ...(body.title && { title: body.title }),
+                ...(body.specialty && { specialty: body.specialty }),
+                ...(body.npi && { npi: body.npi })
+              });
+              
+              // Save to MongoDB - should automatically set id field via pre-save hook
               await userDoc.save();
-              console.log('User saved to MongoDB:', userDoc);
+              
+              // Get the ID for response
+              newUser.id = userDoc._id.toString();
+              
+              console.log('User saved to MongoDB with ID:', userDoc._id);
               
               // Try to create Firebase Authentication user if available
               try {

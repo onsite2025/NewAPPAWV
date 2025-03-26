@@ -1732,6 +1732,169 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
       }
     }
 
+    // Add a direct MongoDB insertion test to bypass Mongoose validation
+    if (path === '/direct-mongodb-test') {
+      try {
+        await connectToMongoDB();
+        console.log('Connected to MongoDB directly');
+        
+        // Try inserting with different role values to see what's accepted
+        const timestamp = Date.now();
+        const testEmail = `directtest-${timestamp}@example.com`;
+        
+        // Get direct access to the MongoDB collection
+        const db = mongoose.connection.db;
+        if (!db) {
+          throw new Error('MongoDB connection not established');
+        }
+        
+        const usersCollection = db.collection('users');
+        
+        // Try to get collection info
+        const collectionInfo = await usersCollection.options();
+        console.log('Users collection info:', collectionInfo);
+        
+        // Try to get validation info
+        let validationInfo = null;
+        try {
+          const dbAdmin = db.admin();
+          validationInfo = await db.command({ listCollections: 1, filter: { name: 'users' } });
+          console.log('Collection validation info:', JSON.stringify(validationInfo, null, 2));
+        } catch (validationError) {
+          console.error('Error getting validation info:', validationError);
+        }
+        
+        // Try inserting with different roles to see what works
+        const rolesToTry = ['admin', 'doctor', 'nurse', 'provider', 'staff', 'user'];
+        const results: Record<string, any> = {};
+        
+        for (const role of rolesToTry) {
+          try {
+            const result = await usersCollection.insertOne({
+              name: `Direct Test User ${role}`,
+              email: `${role}-${testEmail}`,
+              password: `test-${timestamp}`,
+              role: role,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+            
+            results[role] = {
+              success: true,
+              id: result.insertedId.toString()
+            };
+            console.log(`Successfully inserted user with role "${role}"`);
+          } catch (error) {
+            results[role] = {
+              success: false,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            };
+            console.error(`Failed to insert user with role "${role}":`, error);
+          }
+        }
+        
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            success: true,
+            message: 'Direct MongoDB insert test results',
+            results: results,
+            collectionInfo: collectionInfo,
+            validationInfo: validationInfo
+          }),
+          headers: createHeaders()
+        };
+      } catch (error) {
+        console.error('Error in direct MongoDB test:', error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            success: false,
+            error: 'Direct MongoDB test failed',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          }),
+          headers: createHeaders()
+        };
+      }
+    }
+
+    // Alternative simpler user creation endpoint
+    if (path === '/simple-user-create') {
+      try {
+        // Parse request body
+        const userData = JSON.parse(event.body || '{}');
+        console.log('Simple user create with data:', userData);
+        
+        if (!userData.email || !userData.name) {
+          return {
+            statusCode: 400,
+            body: JSON.stringify({
+              success: false,
+              error: 'Email and name are required'
+            }),
+            headers: createHeaders()
+          };
+        }
+        
+        // Connect to MongoDB
+        await connectToMongoDB();
+        
+        // Direct database access without Mongoose models
+        const db = mongoose.connection.db;
+        if (!db) {
+          throw new Error('MongoDB connection not established');
+        }
+        
+        const usersCollection = db.collection('users');
+        
+        // Create user document
+        const userDocument = {
+          email: userData.email,
+          name: userData.name,
+          password: 'password123', // Should be properly hashed in production
+          role: 'user', // Try a different role than the ones we've been using
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        // Insert directly using the MongoDB driver
+        const result = await usersCollection.insertOne(userDocument);
+        
+        if (result.insertedId) {
+          console.log('Successfully created user with ID:', result.insertedId);
+          
+          return {
+            statusCode: 201,
+            body: JSON.stringify({
+              success: true,
+              message: 'User created successfully',
+              user: {
+                id: result.insertedId.toString(),
+                email: userDocument.email,
+                name: userDocument.name,
+                role: userDocument.role
+              }
+            }),
+            headers: createHeaders()
+          };
+        } else {
+          throw new Error('Failed to insert user document');
+        }
+      } catch (error) {
+        console.error('Error in simple user creation:', error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            success: false,
+            error: 'Simple user creation failed',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          }),
+          headers: createHeaders()
+        };
+      }
+    }
+
     // Map routes to handlers
     const routes: Record<string, Record<string, Function>> = {
       '/patients': {

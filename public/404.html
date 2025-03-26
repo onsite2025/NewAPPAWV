@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Not Found | Annual Wellness Visit</title>
+  <script>
+    // Single Page App redirect script for Netlify
+    // This allows client-side routing to work with static hosting
+    (function() {
+      // If the current URL doesn't have a valid extension, redirect to index
+      var pathSegmentsToKeep = 0;
+      var location = window.location;
+      var indexHref = location.protocol + '//' + location.hostname + 
+        (location.port ? ':' + location.port : '') + 
+        location.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + 
+        '/index.html' + location.search;
+        
+      // Only redirect if this is not the index page or a file with extension
+      if (location.pathname !== '/' && 
+          location.pathname !== '/index.html' && 
+          !/\.[^/]+$/.test(location.pathname)) {
+        window.location.href = indexHref;
+      }
+    })();
+  </script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #f9fafb;
+    }
+    .container {
+      text-align: center;
+      padding: 2rem;
+    }
+    h1 {
+      font-size: 2.5rem;
+      color: #1f2937;
+      margin-bottom: 1rem;
+    }
+    p {
+      font-size: 1.125rem;
+      color: #4b5563;
+      max-width: 500px;
+      margin: 0 auto 1.5rem;
+    }
+    a {
+      display: inline-block;
+      background-color: #3b82f6;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.375rem;
+      text-decoration: none;
+      font-weight: 500;
+      transition: background-color 0.2s;
+    }
+    a:hover {
+      background-color: #2563eb;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Page Not Found</h1>
+    <p>The page you're looking for doesn't exist or has been moved.</p>
+    <a href="/">Return to Home</a>
+  </div>
+</body>
+</html> 

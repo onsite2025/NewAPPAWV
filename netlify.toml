@@ -7,7 +7,7 @@
   NODE_VERSION = "18"
   NPM_VERSION = "9"
   NEXT_TELEMETRY_DISABLED = "1"
-  MONGODB_URI = "mongodb+srv://onsitepcn:8Pkn4n0rUeT25VsQ@cluster1.cv9ak.mongodb.net/annual-wellness-visit"
+  MONGODB_URI = "mongodb+srv://onsitepcn:Nf4Yd5d6zOGDR5zG@cluster2.nr0dy.mongodb.net/onsite?retryWrites=true&w=majority&appName=Cluster2"
   NEXT_PUBLIC_FIREBASE_API_KEY = "AIzaSyCjVKYDelG6ASUS6EfYUtOnvJBYhMCA1Lo"
   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "manusawv.firebaseapp.com"
   NEXT_PUBLIC_FIREBASE_PROJECT_ID = "manusawv"
@@ -31,9 +31,8 @@
 # Support client-side routing for Next.js App Router
 [[redirects]]
   from = "/*"
-  to = "/index.html"
-  status = 200
-  force = false
+  to = "/404.html"
+  status = 404
 
 # Add headers for security and CORS
 [[headers]]

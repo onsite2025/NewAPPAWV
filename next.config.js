@@ -1,14 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Change from 'standalone' to standard output mode
-  // 'standalone' can sometimes cause issues with prerendering client components
+  // Static export mode
   output: 'export',
   
-  // Enable experimental features for API routes
+  // Disable experimental features that don't work with export
   experimental: {
-    serverActions: {
-      allowedOrigins: ['localhost:3000', 'finalawv.netlify.app']
-    }
+    // Removed serverActions as they don't work with static export
   },
   
   // Disable image optimization for improved build compatibility
@@ -21,16 +18,8 @@ const nextConfig = {
     MONGODB_URI: process.env.MONGODB_URI,
   },
 
-  // Configure rewrites to handle API routes
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: '/.netlify/functions/api/:path*'
-      }
-    ];
-  },
-
+  // Removed rewrites() as they don't work with static export
+  
   // Add webpack configuration for better module support
   webpack: (config, { isServer }) => {
     if (!isServer) {
@@ -44,7 +33,7 @@ const nextConfig = {
     return config;
   },
   
-  // Disable static optimization to prevent issues with client-side hooks
+  // Set React mode
   reactStrictMode: true,
   compiler: {
     styledComponents: true,

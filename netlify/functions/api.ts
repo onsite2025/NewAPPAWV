@@ -17,6 +17,9 @@ if (!MONGODB_URI) {
   throw new Error('MONGODB_URI environment variable is not defined');
 }
 
+console.log('MongoDB URI found in environment, first few characters:', 
+  MONGODB_URI ? `${MONGODB_URI.substring(0, 15)}...` : 'undefined');
+
 // In-memory storage for newly created users (this will persist until the function is redeployed)
 const newUsers: Record<string, any> = {};
 
@@ -167,17 +170,18 @@ const connectToMongoDB = async () => {
     console.log('Attempting to connect to MongoDB with URI:', 
       MONGODB_URI ? `${MONGODB_URI.substring(0, 15)}...` : 'undefined');
 
-    // Connect to MongoDB
+    // Connect to MongoDB with updated connection options for MongoDB Atlas
     await mongoose.connect(MONGODB_URI, {
       bufferCommands: false,
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-      connectTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 20000, // Increased timeout values
+      socketTimeoutMS: 60000,
+      connectTimeoutMS: 20000,
       maxPoolSize: 10,
       minPoolSize: 1,
       retryWrites: true,
       retryReads: true,
       ssl: true,
+      appName: "AWVApp" // Custom application name for monitoring
     });
     console.log('✅ Connected to MongoDB');
     return mongoose;

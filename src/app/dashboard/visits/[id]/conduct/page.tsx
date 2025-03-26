@@ -3,6 +3,17 @@
 // Prevent static rendering of this route
 export const dynamic = 'force-dynamic';
 
+// This function is required for static site generation with [id] param
+export async function generateStaticParams() {
+  // Return placeholder IDs for static generation
+  // These IDs will be used at build time to generate static pages
+  return [
+    { id: 'placeholder1' },
+    { id: 'placeholder2' },
+    { id: 'placeholder3' }
+  ];
+}
+
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';

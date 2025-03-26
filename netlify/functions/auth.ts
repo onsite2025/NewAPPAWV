@@ -1,21 +1,24 @@
 import { Handler, HandlerEvent, HandlerContext } from "@netlify/functions";
-import connectToDatabase from "../../src/lib/mongodb";
-import NextAuth from "next-auth";
-import { authOptions } from "../../src/lib/auth";
 
+// Import only what's needed to reduce bundle size
 const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
-  // Extract the path and method from the event
-  const path = event.path.replace(/^\/\.netlify\/functions\/auth/, "");
-  const { httpMethod } = event;
-  
   try {
-    // Initialize NextAuth with our auth options
-    const nextAuthHandler = NextAuth(authOptions);
+    // Extract the path and method from the event
+    const path = event.path.replace(/^\/\.netlify\/functions\/auth/, "");
+    const { httpMethod } = event;
     
-    // Connect to MongoDB if needed
+    // Dynamically import dependencies only when needed - this reduces initial bundle size
+    const { default: connectToDatabase } = await import("../../src/lib/mongodb");
+    const { default: NextAuth } = await import("next-auth");
+    const { authOptions } = await import("../../src/lib/auth");
+    
+    // Connect to MongoDB only if needed
     await connectToDatabase();
     
-    // Create a mock Next.js request and response for NextAuth to use
+    // Initialize NextAuth with auth options
+    const nextAuthHandler = NextAuth(authOptions);
+    
+    // Create mock request
     const req: Record<string, any> = {
       method: httpMethod,
       headers: event.headers,
@@ -25,7 +28,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
       cookies: {} as Record<string, string>
     };
     
-    // Extract cookies from the request headers
+    // Extract cookies
     const cookieHeader = event.headers.cookie || event.headers.Cookie;
     if (cookieHeader) {
       cookieHeader.split(';').forEach((cookie: string) => {
@@ -36,7 +39,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
       });
     }
     
-    // Create a mock response object that captures the response data
+    // Create mock response
     let statusCode = 200;
     let responseBody = '';
     let headers: Record<string, string> = {};
@@ -48,32 +51,25 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
       },
       json: (body: any) => {
         responseBody = JSON.stringify(body);
-        headers = {
-          ...headers,
-          'Content-Type': 'application/json'
-        };
+        headers['Content-Type'] = 'application/json';
         return res;
       },
       setHeader: (name: string, value: string) => {
         headers[name] = value;
         return res;
       },
-      getHeader: (name: string) => {
-        return headers[name];
-      },
+      getHeader: (name: string) => headers[name],
       send: (body: any) => {
         responseBody = typeof body === 'string' ? body : JSON.stringify(body);
         return res;
       },
-      end: () => {
-        // Do nothing, just a placeholder
-      }
+      end: () => {}
     };
     
-    // Call the NextAuth handler with our mock request and response
+    // Process request through NextAuth
     await nextAuthHandler(req, res);
     
-    // Return the response in the format expected by Netlify functions
+    // Return Netlify function response
     return {
       statusCode,
       body: responseBody,
@@ -81,13 +77,10 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
     };
   } catch (error) {
     console.error('Error in auth function:', error);
-    
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Internal Server Error' }),
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Content-Type': 'application/json' }
     };
   }
 };

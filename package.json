@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "npm install --prefer-offline --no-audit && next build",
+    "build": "npm install --prefer-offline --no-audit && next build && npm run build:functions",
+    "build:functions": "cd netlify/functions && npm install --production --prefer-offline --no-audit",
     "postbuild": "echo 'Build completed successfully'",
     "start": "next start",
     "lint": "next lint"

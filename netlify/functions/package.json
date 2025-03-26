@@ -3,6 +3,12 @@
   "version": "1.0.0",
   "description": "Netlify serverless functions for API endpoints",
   "dependencies": {
-    "mongodb": "^5.0.0"
+    "mongodb": "^5.0.0",
+    "mongoose": "^8.0.0",
+    "next-auth": "^4.22.1",
+    "bcryptjs": "^2.4.3"
+  },
+  "engines": {
+    "node": "18.x"
   }
 } 

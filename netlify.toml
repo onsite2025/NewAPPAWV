@@ -18,6 +18,11 @@
   NEXTAUTH_URL = "https://finalawv.netlify.app"
   NEXTAUTH_SECRET = "your-nextauth-secret-key-here"
 
+# Custom build plugin to optimize function size
+[[plugins]]
+  package = "./netlify-plugins/build-plugin"
+
+# Next.js specific plugin
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
@@ -54,26 +59,25 @@
     Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
     Access-Control-Allow-Headers = "Content-Type, Authorization"
 
-# Function configuration
+# Function optimization settings
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["mongoose"]
+  # Include only necessary external dependencies
+  external_node_modules = ["mongodb", "mongoose", "next-auth", "bcryptjs"]
+  # Set zip function to true to compress functions
+  zip = true
+  # Reduce function size by excluding unnecessary files
+  included_files = []
+  excluded_files = ["**/*.test.js", "**/*.spec.js", "node_modules/**/.git/**"]
+  
+  # Specific configuration for the auth function
+  [functions.auth]
+    included_files = ["src/lib/mongodb.ts", "src/lib/auth.ts", "src/models/User.ts", "src/lib/prerender-workaround.ts"]
+    
+  # Specific configuration for the api function 
+  [functions.api]
+    included_files = ["src/lib/mongodb.ts", "src/models/*.ts", "src/lib/auth.ts", "src/lib/prerender-workaround.ts"]
 
-[functions.api]
-  timeout = 30
-  memory = 2048
-  node_bundler = "esbuild"
-  external_node_modules = ["mongoose"]
-  included_files = ["src/lib/mongodb.ts"]
-  runtime = "nodejs18.x"
-  maxDuration = 30
-
-# Dedicated auth function configuration
-[functions.auth]
-  timeout = 30
-  memory = 2048
-  node_bundler = "esbuild"
-  external_node_modules = ["mongoose", "next-auth", "bcryptjs"]
-  included_files = ["src/lib/mongodb.ts", "src/lib/auth.ts", "src/models/User.ts"]
-  runtime = "nodejs18.x"
-  maxDuration = 30 
+# Optimize build settings
+[build.processing]
+  skip_processing = true 

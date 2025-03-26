@@ -1,4 +1,4 @@
-// This file handles static generation for the [id] dynamic route
+// This file handles static generation for the visits/[id] dynamic route
 
 export async function generateStaticParams() {
   try {

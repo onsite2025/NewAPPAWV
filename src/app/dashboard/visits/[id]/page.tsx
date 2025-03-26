@@ -3,6 +3,14 @@
 
 import VisitDetailClientPage from './client-page';
 
+// Define the correct PageProps interface expected by Next.js
+interface PageProps {
+  params: { 
+    id: string 
+  };
+  searchParams?: { [key: string]: string | string[] | undefined };
+}
+
 // This function is required for static site generation with dynamic routes
 export async function generateStaticParams() {
   try {
@@ -16,6 +24,6 @@ export async function generateStaticParams() {
 }
 
 // Export the client component as the default export of this page
-export default function VisitDetailPage({ params }: { params: { id: string } }) {
+export default function VisitDetailPage({ params }: PageProps) {
   return <VisitDetailClientPage params={params} />;
 } 

@@ -193,29 +193,39 @@ const initializeFirebase = async () => {
   
   try {
     // Dynamically import Firebase Admin
+    console.log('Trying to initialize Firebase Admin SDK...');
     admin = await import('firebase-admin').then(module => module.default);
     
     // Check if Firebase Admin SDK credentials are available
     const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
     
     if (serviceAccount) {
+      console.log('Firebase service account credentials found');
       // Check if app is already initialized
       try {
         admin.app();
       } catch (e) {
         // Initialize app if not already done
-        admin.initializeApp({
-          credential: admin.credential.cert(JSON.parse(serviceAccount)),
-          databaseURL: process.env.FIREBASE_DATABASE_URL
-        });
+        try {
+          admin.initializeApp({
+            credential: admin.credential.cert(JSON.parse(serviceAccount)),
+            databaseURL: process.env.FIREBASE_DATABASE_URL
+          });
+          console.log('Firebase Admin SDK initialized successfully');
+        } catch (initError) {
+          console.error('Error initializing Firebase app:', initError);
+          return false;
+        }
       }
-      console.log('Firebase Admin SDK initialized');
       firebaseInitialized = true;
+      return true;
     } else {
-      console.warn('Firebase service account not available, skipping Firebase integration');
+      console.warn('Firebase service account credentials not found - FIREBASE_SERVICE_ACCOUNT env var missing');
+      return false;
     }
   } catch (error) {
     console.error('Error initializing Firebase Admin SDK:', error);
+    return false;
   }
 };
 
@@ -795,9 +805,11 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
           try {
             // Parse the request body
             const body = JSON.parse(event.body || '{}');
+            console.log('Received user creation request with data:', body);
             
             // Validate required fields
             if (!body.email || !body.name) {
+              console.log('Missing required fields for user creation');
               return {
                 statusCode: 400,
                 body: JSON.stringify({
@@ -821,6 +833,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
             
             // Store the new user in our in-memory storage
             newUsers[newUserId] = newUser;
+            console.log('Created user in memory with ID:', newUserId);
             
             // Also save to MongoDB
             try {
@@ -859,47 +872,60 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
                 ...(body.npi && { npi: body.npi })
               });
               
-              console.log('User document created, about to save:', userDoc);
+              console.log('User document created, about to save:', JSON.stringify(userDoc, null, 2));
               
               // Save to MongoDB - should automatically set id field via pre-save hook
-              await userDoc.save();
+              let savedUser;
+              try {
+                savedUser = await userDoc.save();
+                console.log('User successfully saved to MongoDB with ID:', savedUser._id, 'in collection:', User.collection.name);
+              } catch (saveError) {
+                console.error('Error in save operation:', saveError);
+                throw saveError;
+              }
               
               // Get the ID for response
-              newUser.id = userDoc._id.toString();
-              
-              console.log('User saved to MongoDB with ID:', userDoc._id, 'in collection:', User.collection.name);
+              newUser.id = savedUser._id.toString();
               
               // Try to create Firebase Authentication user if available
               try {
                 // Initialize Firebase Admin SDK
-                await initializeFirebase();
+                console.log('Attempting to initialize Firebase for user creation');
+                const firebaseInitialized = await initializeFirebase();
                 
                 // Only proceed if Firebase is initialized
                 if (firebaseInitialized && admin) {
-                  // Create Firebase Auth user with email and a temporary password
-                  const firebaseUser = await admin.auth().createUser({
-                    email: body.email,
-                    emailVerified: false,
-                    password: 'Temp' + Date.now() + '!', // Temporary password that meets requirements
-                    displayName: body.name,
-                    disabled: body.status === 'pending' // Disable if pending
-                  });
-                  
-                  console.log('Created Firebase user:', firebaseUser.uid);
-                  
-                  // Add custom claims for role
-                  await admin.auth().setCustomUserClaims(firebaseUser.uid, {
-                    role: body.role || 'staff'
-                  });
-                  
-                  // Update the user with Firebase UID
-                  userDoc.firebaseUid = firebaseUser.uid;
-                  await userDoc.save();
-                  
-                  console.log('User created in Firebase Authentication');
+                  console.log('Firebase initialized, attempting to create auth user');
+                  try {
+                    // Create Firebase Auth user with email and a temporary password
+                    const firebaseUser = await admin.auth().createUser({
+                      email: body.email,
+                      emailVerified: false,
+                      password: 'Temp' + Date.now() + '!', // Temporary password that meets requirements
+                      displayName: body.name,
+                      disabled: body.status === 'pending' // Disable if pending
+                    });
+                    
+                    console.log('Created Firebase user successfully with UID:', firebaseUser.uid);
+                    
+                    // Add custom claims for role
+                    await admin.auth().setCustomUserClaims(firebaseUser.uid, {
+                      role: body.role || 'staff'
+                    });
+                    
+                    // Update the user with Firebase UID
+                    savedUser.firebaseUid = firebaseUser.uid;
+                    await savedUser.save();
+                    
+                    console.log('User updated with Firebase UID and created in Firebase Authentication');
+                  } catch (firebaseAuthError) {
+                    console.error('Firebase Auth user creation error:', firebaseAuthError);
+                  }
+                } else {
+                  console.log('Firebase not initialized, skipping Firebase user creation');
                 }
               } catch (firebaseError) {
-                console.error('Error creating Firebase user:', firebaseError);
+                console.error('Error in Firebase integration:', firebaseError);
                 // Continue without Firebase - it's not critical for the demo
               }
               

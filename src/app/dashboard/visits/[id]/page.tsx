@@ -5,12 +5,12 @@ import { Metadata } from 'next';
 import VisitDetailClientPage from './client-page';
 
 // Define params type for this specific page
-type VisitDetailParams = {
+type Params = {
   id: string;
 };
 
 // This function is required for static site generation with dynamic routes
-export async function generateStaticParams(): Promise<VisitDetailParams[]> {
+export async function generateStaticParams(): Promise<Params[]> {
   try {
     // We'll pre-render a default placeholder page
     // The actual data will be fetched client-side
@@ -28,11 +28,13 @@ export const metadata: Metadata = {
 };
 
 // Export the client component as the default export of this page
-// Non-async function to avoid Promise type issues
-export default function VisitDetailPage({ 
-  params 
-}: { 
-  params: VisitDetailParams;
+// Using the standard Next.js page props pattern
+export default function Page({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: { [key: string]: string | string[] | undefined };
 }) {
   return <VisitDetailClientPage params={params} />;
 } 

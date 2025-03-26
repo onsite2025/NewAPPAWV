@@ -5,14 +5,9 @@ import { Metadata } from 'next';
 import VisitDetailClientPage from './client-page';
 import { notFound } from 'next/navigation';
 
-// Define the expected params shape
-export interface VisitDetailPageParams {
-  id: string;
-}
-
-// This function is required for static site generation with dynamic routes
-export async function generateStaticParams(): Promise<VisitDetailPageParams[]> {
-  // We'll pre-render a default placeholder page
+// This simplified approach minimizes type conflicts
+// Just export what's strictly necessary without complex typings
+export async function generateStaticParams() {
   return [{ id: 'placeholder' }];
 }
 
@@ -22,12 +17,8 @@ export const metadata: Metadata = {
   description: 'View visit details and information',
 };
 
-// Standard pattern for Next.js App Router pages
-export default function VisitDetailPage({
-  params,
-}: {
-  params: VisitDetailPageParams;
-}) {
+// Make the component async - this is key for Server Components in Next.js App Router
+export default async function Page({ params }: { params: { id: string } }) {
   // Validate the ID parameter
   if (!params.id) {
     notFound();

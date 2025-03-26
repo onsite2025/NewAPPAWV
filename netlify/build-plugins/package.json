@@ -1,0 +1,8 @@
+{
+  "name": "netlify-plugin-ensure-build",
+  "version": "1.0.0",
+  "description": "Custom Netlify build plugin to ensure successful builds",
+  "main": "ensure-build.js",
+  "author": "",
+  "license": "MIT"
+} 

@@ -1,0 +1,3 @@
+name: ensure-build
+description: Ensures successful builds by handling critical files and environment variables
+inputs: [] 

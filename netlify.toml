@@ -21,9 +21,6 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-[[plugins]]
-  package = "./netlify/build-plugins/ensure-build"
-
 # Handle API routes
 [[redirects]]
   from = "/api/*"

@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "node scripts/ensure-files.js",
     "start": "next start",
     "lint": "next lint"
   },

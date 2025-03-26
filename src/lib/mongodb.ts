@@ -90,7 +90,7 @@ export default async function connectToDatabase(): Promise<mongoose.Connection> 
     // Wait for connection to establish
     return new Promise((resolve, reject) => {
       const checkInterval = setInterval(() => {
-        if (mongoose.connection.readyState === 1) {
+  if (mongoose.connection.readyState === 1) {
           clearInterval(checkInterval);
           resolve(mongoose.connection);
         } else if (mongoose.connection.readyState === 0 || mongoose.connection.readyState === 3) {
@@ -214,4 +214,4 @@ process.on('SIGINT', async () => {
     console.error('Error during MongoDB connection closure:', err);
     process.exit(1);
   }
-}); 
+});

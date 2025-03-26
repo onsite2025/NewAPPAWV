@@ -25,23 +25,21 @@ let practiceSettings: any = null;
 
 // Define MongoDB schemas
 const UserSchema = new mongoose.Schema({
-  id: String,
+  name: { type: String, required: true },
   email: { type: String, required: true },
   password: { type: String, required: true },
-  name: { type: String, required: true },
   role: { 
     type: String, 
-    enum: ['admin', 'provider', 'staff'],
-    default: 'staff' 
+    enum: ['admin', 'doctor', 'nurse'],
+    default: 'nurse' 
   },
-  status: { type: String, default: 'pending' },
-  createdAt: { type: Date, default: Date.now },
-  lastLogin: Date,
-  phone: String,
-  title: String,
+  profileImage: String,
   specialty: String,
-  npi: String,
-  firebaseUid: String
+  npiNumber: String,
+  isActive: { type: Boolean, default: true },
+  lastLogin: Date,
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
 }, { 
   // This ensures _id is also available as a string in id field
   toJSON: { virtuals: true },
@@ -52,12 +50,10 @@ const UserSchema = new mongoose.Schema({
   strict: false
 });
 
-// Add a pre-save hook to ensure id is set
+// Add a pre-save hook to ensure id is set and update timestamp
 UserSchema.pre('save', function(next) {
-  // If no id is set, use _id as the id
-  if (!this.id) {
-    this.id = this._id.toString();
-  }
+  // Update the updatedAt timestamp
+  this.updatedAt = new Date();
   next();
 });
 
@@ -278,8 +274,8 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
             const testUser = new User({
               email: `test-${Date.now()}@example.com`,
               name: 'Test User',
-              role: 'staff',
-              status: 'active',
+              role: 'nurse',
+              isActive: true,
               createdAt: new Date()
             });
             
@@ -356,8 +352,8 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
           email: `test-${Date.now()}@example.com`,
           password: 'test-password-123',  // Required field
           name: 'Test User',
-          role: 'staff',  // Must be one of the enum values
-          status: 'active',
+          role: 'nurse',  // Must be one of the enum values
+          isActive: true,
           createdAt: new Date()
         });
         
@@ -487,16 +483,18 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
         await connectToMongoDB();
         const { User } = getModels();
         
-        // Create a test user with all required fields
+        // Create a test user with all required fields matching the database schema
+        const timestamp = Date.now();
         const testUser = new User({
-          email: `test-user-${Date.now()}@example.com`,
-          password: 'test-password-123',
+          email: `test-user-${timestamp}@example.com`,
+          password: `test-password-${timestamp}`,
           name: 'Test User Created Via Endpoint',
-          role: 'staff',
-          status: 'active',
-          phone: '555-123-4567',
-          title: 'Test Title',
-          createdAt: new Date()
+          role: 'nurse', // Must be one of the valid enum values: admin, doctor, nurse
+          isActive: true,
+          specialty: 'Test Specialty',
+          npiNumber: '1234567890',
+          createdAt: new Date(),
+          updatedAt: new Date()
         });
         
         console.log('About to save test user:', JSON.stringify(testUser, null, 2));
@@ -616,6 +614,45 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
           headers: createHeaders()
         };
       }
+    }
+
+    // Add raw request logging endpoint for debugging
+    if (path === '/raw-request') {
+      // Log the entire event object for debugging
+      console.log('Raw request received:', {
+        httpMethod: event.httpMethod,
+        path: path,
+        headers: event.headers,
+        queryParams: event.queryStringParameters,
+        body: event.body,
+        isBase64Encoded: event.isBase64Encoded
+      });
+      
+      let parsedBody = null;
+      try {
+        if (event.body) {
+          parsedBody = JSON.parse(event.body);
+        }
+      } catch (error) {
+        console.error('Error parsing request body:', error);
+      }
+      
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          success: true,
+          message: 'Raw request captured',
+          request: {
+            method: event.httpMethod,
+            path: path,
+            headers: event.headers,
+            query: event.queryStringParameters,
+            rawBody: event.body,
+            parsedBody: parsedBody
+          }
+        }),
+        headers: createHeaders()
+      };
     }
 
     // Log request details
@@ -751,7 +788,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
         // Import the user model dynamically
         const UserSchema = new mongoose.Schema({
           email: { type: String, required: true, unique: true },
-          role: { type: String, default: 'staff' },
+          role: { type: String, default: 'nurse' },
           name: String,
           photoURL: String,
           createdAt: { type: Date, default: Date.now }
@@ -786,7 +823,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
           return {
             statusCode: 200,
             body: JSON.stringify({
-              role: (user as any).role || 'staff',
+              role: (user as any).role || 'nurse',
               id: (user as any)._id,
               email: (user as any).email
             }),
@@ -799,9 +836,9 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
           return {
             statusCode: 200, 
             body: JSON.stringify({
-              role: 'staff',
+              role: 'nurse',
               id: userId,
-              email: 'staff@example.com'
+              email: 'nurse@example.com'
             }),
             headers: createHeaders()
           };
@@ -843,7 +880,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
               id: "2",
               email: "provider@example.com",
               name: "Provider User",
-              role: "provider",
+              role: "doctor",
               status: "active",
               createdAt: new Date().toISOString(),
               lastLogin: new Date().toISOString(),
@@ -856,7 +893,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
               id: "3",
               email: "staff@example.com",
               name: "Staff User",
-              role: "staff",
+              role: "nurse",
               status: "active",
               createdAt: new Date().toISOString(),
               lastLogin: new Date().toISOString(),
@@ -940,14 +977,46 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
         
         if (event.httpMethod === 'POST') {
           try {
+            // Log raw request
+            console.log('POST /users raw body:', event.body);
+            
             // Parse the request body
-            const body = JSON.parse(event.body || '{}');
+            let body = {};
+            try {
+              if (event.body) {
+                body = JSON.parse(event.body);
+              }
+            } catch (parseError) {
+              console.error('Error parsing request body:', parseError);
+              return {
+                statusCode: 400,
+                body: JSON.stringify({
+                  success: false,
+                  error: 'Invalid JSON in request body'
+                }),
+                headers: createHeaders()
+              };
+            }
+            
             console.log('Received user creation request with data:', JSON.stringify(body, null, 2));
             
             // Check for different data formats - UI might be sending data differently
             // Some UIs wrap the user data in a 'user' or 'data' field
             const userData = body.user || body.data || body;
             console.log('Extracted user data:', JSON.stringify(userData, null, 2));
+            
+            // If no data provided, return error
+            if (Object.keys(userData).length === 0) {
+              console.log('No user data provided in request');
+              return {
+                statusCode: 400,
+                body: JSON.stringify({
+                  success: false,
+                  error: 'No user data provided'
+                }),
+                headers: createHeaders()
+              };
+            }
             
             // Validate required fields
             if (!userData.email || !userData.name) {
@@ -968,8 +1037,8 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
               id: newUserId,
               email: userData.email,
               name: userData.name,
-              role: userData.role || 'staff',
-              status: 'pending',
+              role: userData.role || 'nurse',
+              isActive: true,
               createdAt: new Date().toISOString()
             };
             
@@ -1002,17 +1071,33 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
               const userDoc = new User({
                 email: userData.email,
                 // Generate a temporary password since it's required by the schema
-                password: 'temp' + Date.now(), // This would be hashed in a real app
+                password: userData.password || `temp-${Date.now()}`, // This would be hashed in a real app
                 name: userData.name,
-                role: userData.role || 'staff',
-                status: 'pending',
-                createdAt: new Date(),
-                // Store other fields from body if they exist
-                ...(userData.phone && { phone: userData.phone }),
-                ...(userData.title && { title: userData.title }),
+                // Map role values to valid enum values
+                role: mapRoleToValid(userData.role),
+                isActive: true,
+                // Map other fields to the correct schema fields
                 ...(userData.specialty && { specialty: userData.specialty }),
-                ...(userData.npi && { npi: userData.npi })
+                ...(userData.npi && { npiNumber: userData.npi }),
+                ...(userData.profileImage && { profileImage: userData.profileImage }),
+                createdAt: new Date(),
+                updatedAt: new Date()
               });
+              
+              // Helper function to map UI role values to valid MongoDB enum values
+              function mapRoleToValid(role) {
+                if (!role) return 'nurse'; // Default
+                
+                // Map to expected enum values
+                switch(role.toLowerCase()) {
+                  case 'admin': return 'admin';
+                  case 'provider': 
+                  case 'doctor': return 'doctor';
+                  case 'staff':
+                  case 'nurse':
+                  default: return 'nurse';
+                }
+              }
               
               console.log('User document created, about to save:', JSON.stringify(userDoc, null, 2));
               
@@ -1045,14 +1130,14 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
                       emailVerified: false,
                       password: 'Temp' + Date.now() + '!', // Temporary password that meets requirements
                       displayName: userData.name,
-                      disabled: userData.status === 'pending' // Disable if pending
+                      disabled: userData.isActive === false // Disable if not active
                     });
                     
                     console.log('Created Firebase user successfully with UID:', firebaseUser.uid);
                     
                     // Add custom claims for role
                     await admin.auth().setCustomUserClaims(firebaseUser.uid, {
-                      role: userData.role || 'staff'
+                      role: userData.role || 'nurse'
                     });
                     
                     // Update the user with Firebase UID
@@ -1154,7 +1239,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
             id: "2",
             email: "provider@example.com",
             name: "Provider User",
-            role: "provider",
+            role: "doctor",
             status: "active",
             createdAt: new Date().toISOString(),
             lastLogin: new Date().toISOString(),
@@ -1167,7 +1252,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
             id: "3",
             email: "staff@example.com",
             name: "Staff User",
-            role: "staff",
+            role: "nurse",
             status: "active",
             createdAt: new Date().toISOString(),
             lastLogin: new Date().toISOString(),

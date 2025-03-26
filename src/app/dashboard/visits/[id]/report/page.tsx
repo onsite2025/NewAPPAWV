@@ -148,7 +148,7 @@ function VisitReportPage() {
           try {
             const templateData = await templateService.getTemplateById(visitData.templateId);
             if (templateData) {
-              setTemplate(templateData);
+            setTemplate(templateData);
             }
           } catch (err) {
             console.error('Error fetching template:', err);
@@ -159,15 +159,15 @@ function VisitReportPage() {
         // Fetch patient details if not populated
         if (visitData.patient) {
           if (typeof visitData.patient === 'object' && visitData.patient !== null) {
-            setPatient(visitData.patient);
+          setPatient(visitData.patient);
           } else if (typeof visitData.patient === 'string') {
-            try {
-              const patientData = await patientService.getPatientById(visitData.patient);
+          try {
+            const patientData = await patientService.getPatientById(visitData.patient);
               if (patientData) {
-                setPatient(patientData);
+            setPatient(patientData);
               }
-            } catch (err) {
-              console.error('Error fetching patient:', err);
+          } catch (err) {
+            console.error('Error fetching patient:', err);
               // Continue without patient details - non-critical
             }
           }
@@ -607,10 +607,10 @@ function VisitReportPage() {
             <FiArrowLeft className="h-4 w-4 mr-1" /> Back to Visit
           </Link>
           
-          <div className="flex space-x-2">
+        <div className="flex space-x-2">
             <button onClick={handlePrint} className="btn-secondary">
               <FiPrinter className="h-4 w-4 mr-1" /> Print
-            </button>
+          </button>
             
             <button 
               onClick={handleDownloadPDF} 
@@ -621,11 +621,11 @@ function VisitReportPage() {
                 ? <>Generating...</>
                 : <><FiDownload className="h-4 w-4 mr-1" /> Download PDF</>
               }
-            </button>
+          </button>
             
             <button onClick={handleEmailReport} className="btn-ghost">
               <FiMail className="h-4 w-4 mr-1" /> Email
-            </button>
+          </button>
           </div>
         </div>
       </div>
@@ -651,10 +651,10 @@ function VisitReportPage() {
                         <span className="ml-2 text-gray-600">({patientAge} years)</span>
                       )}
                     </div>
-                  </div>
-                </div>
-              </div>
-              
+            </div>
+          </div>
+        </div>
+        
               <div className="flex items-center">
                 {visitData.status && (
                   <div className="mr-6">
@@ -698,12 +698,12 @@ function VisitReportPage() {
           
           {/* Assessment Findings */}
           {template && visitData.responses && Object.keys(visitData.responses).length > 0 && (
-            <div className="mb-8">
+          <div className="mb-8">
               <h2 className="text-xl font-bold mb-4 pb-2 border-b text-primary-700 flex items-center">
                 <FiClipboard className="mr-2" /> Assessment Findings
               </h2>
-              
-              <div className="space-y-6">
+            
+            <div className="space-y-6">
                 {template.sections.map((section: any) => {
                   // Check if there are any responses for this section
                   const sectionQuestionIds = section.questions.map((q: any) => q.id);
@@ -777,11 +777,11 @@ function VisitReportPage() {
                             </div>
                           );
                         })}
-                      </div>
+                        </div>
                     </div>
                   );
                 })}
-              </div>
+                  </div>
             </div>
           )}
           
@@ -792,9 +792,9 @@ function VisitReportPage() {
                 <FiEdit className="mr-2" /> Provider Notes
               </h2>
               <p className="whitespace-pre-line mt-2 text-gray-800">{visitData.notes}</p>
-            </div>
-          )}
-          
+          </div>
+        )}
+        
           <div className="text-center mt-8 text-sm text-gray-500 pt-4 border-t border-gray-200">
             <p>Report generated on {new Date().toLocaleDateString()}</p>
             <p className="mt-1">This report is for informational purposes only. Please consult with your healthcare provider for any medical advice.</p>

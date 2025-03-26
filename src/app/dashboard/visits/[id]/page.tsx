@@ -4,11 +4,6 @@
 import { Metadata } from 'next';
 import VisitDetailClientPage from './client-page';
 
-// Define simple static params
-interface StaticParams {
-  id: string;
-}
-
 // This function is required for static site generation with dynamic routes
 export async function generateStaticParams() {
   // We'll pre-render a default placeholder page
@@ -21,7 +16,9 @@ export const metadata: Metadata = {
   description: 'View visit details and information',
 };
 
-// Standard Next.js Page component using default pattern without custom types
-export default function Page({ params }: { params: { id: string } }) {
+// Server component must be async to match Next.js expected typing pattern
+export default async function Page({ params }: { params: { id: string } }) {
+  // Now we can use await here if needed for data fetching
+  // For now, we're just returning the client component
   return <VisitDetailClientPage params={params} />;
 } 

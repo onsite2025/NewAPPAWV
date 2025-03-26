@@ -1,4 +1,4 @@
-// Server Component wrapper for static generation
+// Server Component for static generation
 import { Metadata } from 'next';
 import EditTemplateClientPage from './client-page';
 
@@ -15,6 +15,6 @@ export async function generateStaticParams() {
 }
 
 // Server Component for the template edit page
-export default function Page(props: any) {
-  return <EditTemplateClientPage params={props.params} />;
-} 
+export default function Page({ params }: { params: { id: string } }) {
+  return <EditTemplateClientPage params={params} />;
+}

@@ -6,13 +6,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 
-// Define generateMetadata to prevent build errors
-export const generateMetadata = () => {
-  return {
-    title: 'Registration Temporarily Unavailable - Annual Wellness Visit',
-    description: 'Registration is currently unavailable. Please contact an administrator for assistance.'
-  };
-};
+// Remove the generateMetadata export as it's not allowed in client components
+// Metadata must be defined in server components
 
 export default function RegisterPage() {
   return (

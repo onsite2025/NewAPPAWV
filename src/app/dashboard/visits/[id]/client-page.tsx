@@ -11,11 +11,11 @@ import visitService from '@/services/visitService';
 import templateService from '@/services/templateService';
 import { format } from 'date-fns';
 
-interface VisitDetailClientPageProps {
+type VisitDetailClientPageProps = {
   params: {
     id: string;
   };
-}
+};
 
 export default function VisitDetailClientPage({ params: propParams }: VisitDetailClientPageProps) {
   const routeParams = useParams();

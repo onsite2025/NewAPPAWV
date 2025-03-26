@@ -1,7 +1,7 @@
 'use client';
 
-// Prevent static rendering of this route
-export const dynamic = 'force-dynamic';
+// Remove force-dynamic export since we're using client component
+// export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';

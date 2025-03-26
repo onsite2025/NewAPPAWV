@@ -1,8 +1,10 @@
 import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import connectToDatabase from '@/lib/mongodb';
-import User from '@/models/User';
+import { safeConnectToDatabase, isBuildTime } from '@/lib/prerender-workaround';
 import bcrypt from 'bcryptjs';
+
+// Using dynamic imports to prevent issues during build time
+let User: any;
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -17,8 +19,25 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
         
+        // Skip actual auth during build time
+        if (isBuildTime()) {
+          console.log('Build time detected - skipping actual auth');
+          return {
+            id: 'mock-id',
+            email: credentials.email,
+            name: 'Mock User',
+            role: 'user',
+          };
+        }
+        
         try {
-          await connectToDatabase();
+          await safeConnectToDatabase();
+          
+          // Dynamically import User model only when needed
+          if (!User) {
+            const UserModule = await import('@/models/User');
+            User = UserModule.default;
+          }
           
           // Find user by email
           const user = await User.findOne({ email: credentials.email });

@@ -1,7 +1,7 @@
 'use client';
 
-// Prevent static rendering of this route
-export const dynamic = 'force-dynamic';
+// Remove force-dynamic to allow for prerendering
+// export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';

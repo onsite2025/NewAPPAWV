@@ -3,6 +3,7 @@ import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import Script from 'next/script';
+import { ToastProvider } from '@/components/ui/use-toast';
 
 // Load Inter font with extended latin character set and variable settings
 const inter = Inter({
@@ -50,9 +51,11 @@ export default function RootLayout({
         <Script src="/env-config.js" strategy="beforeInteractive" />
       </head>
       <body className="font-sans antialiased">
-        <Providers>
-          {children}
-        </Providers>
+        <ToastProvider>
+          <Providers>
+            {children}
+          </Providers>
+        </ToastProvider>
       </body>
     </html>
   );

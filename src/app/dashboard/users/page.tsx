@@ -1,3 +1,5 @@
+'use client';
+
 import { Suspense } from 'react';
 import Header from "@/components/dashboard/Header";
 import Pagination from "@/components/dashboard/Pagination";
@@ -9,7 +11,6 @@ import dynamic from 'next/dynamic';
 
 // Dynamically import the InviteUserButton component
 const InviteUserButton = dynamic(() => import('./components/InviteUserButton'), {
-  ssr: false,
   loading: () => <Button disabled>Loading...</Button>
 });
 

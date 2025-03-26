@@ -24,7 +24,7 @@ export default function InviteUserButton() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     if (!email) {
@@ -105,7 +105,7 @@ export default function InviteUserButton() {
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 className="col-span-3"
                 placeholder="user@example.com"
                 required
@@ -116,21 +116,15 @@ export default function InviteUserButton() {
                 Role
               </Label>
               <Select 
-                value={role} 
-                onValueChange={setRole}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>User Roles</SelectLabel>
-                    <SelectItem value="admin">Administrator</SelectItem>
-                    <SelectItem value="doctor">Doctor</SelectItem>
-                    <SelectItem value="nurse">Nurse/Staff</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+                options={[
+                  { value: 'admin', label: 'Administrator' },
+                  { value: 'doctor', label: 'Doctor' },
+                  { value: 'nurse', label: 'Nurse/Staff' }
+                ]}
+                value={role}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value)}
+                className="col-span-3"
+              />
             </div>
           </div>
           <DialogFooter>

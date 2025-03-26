@@ -2,6 +2,10 @@ import mongoose from 'mongoose';
 import TemplateModel from '@/models/Template';
 import { uuidv4 } from '@/utils/uuid';
 
+// Configuration for static export
+export const dynamic = 'force-dynamic';
+export const revalidate = 0; // This means always revalidate
+
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 // Helper function to create response with CORS headers

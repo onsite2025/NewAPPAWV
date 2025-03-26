@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import mongoose from 'mongoose';
 
+// Add revalidate configuration for static export
+export const dynamic = 'force-dynamic';
+export const revalidate = 0; // This means always revalidate
+
 // Define Visit schema
 const VisitSchema = new mongoose.Schema({
   patient: { 

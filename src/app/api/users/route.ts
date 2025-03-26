@@ -4,6 +4,10 @@ import mongoose from 'mongoose';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
+// Add revalidate configuration for static export
+export const dynamic = 'force-dynamic';
+export const revalidate = 0; // This means always revalidate
+
 // User model schema
 const UserSchema = new mongoose.Schema({
   email: { 

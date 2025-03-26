@@ -2349,6 +2349,178 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
       }
     }
 
+    // Handle user profile endpoint
+    if (path === '/users/profile') {
+      try {
+        // Get user ID from query parameters or authorization header
+        const userId = event.queryStringParameters?.userId;
+        const authHeader = event.headers?.authorization;
+        
+        // If no user ID is provided, check for authentication
+        if (!userId && !authHeader) {
+          return {
+            statusCode: 400,
+            body: JSON.stringify({
+              success: false,
+              error: 'User ID or authorization is required'
+            }),
+            headers: createHeaders()
+          };
+        }
+        
+        let userIdToFetch = userId;
+        
+        // If we have an auth header but no userId, extract user from token
+        // Note: In a real app, you would verify the JWT token
+        if (authHeader && !userIdToFetch) {
+          // Simple mock implementation - in reality you'd decode the JWT
+          // For demo purposes, assume token is in format: "Bearer user_id"
+          const parts = authHeader.split(' ');
+          if (parts.length === 2) {
+            userIdToFetch = parts[1];
+          }
+        }
+        
+        // If still no user ID, return error
+        if (!userIdToFetch) {
+          return {
+            statusCode: 400,
+            body: JSON.stringify({
+              success: false,
+              error: 'User ID could not be determined'
+            }),
+            headers: createHeaders()
+          };
+        }
+        
+        // Connect to MongoDB
+        await connectToMongoDB();
+        const { User } = getModels();
+        
+        // Try to find user in MongoDB
+        let dbUser;
+        try {
+          // First try to find by MongoDB ObjectId
+          dbUser = await User.findById(userIdToFetch).lean();
+        } catch (idError) {
+          // If that fails, try by custom id field or email
+          dbUser = await User.findOne({ 
+            $or: [{ id: userIdToFetch }, { email: userIdToFetch }]
+          }).lean();
+        }
+        
+        // Check mock users if not found in database
+        if (!dbUser) {
+          const mockUsers: Record<string, any> = {
+            "1": {
+              id: "1",
+              email: "admin@example.com",
+              name: "Admin User",
+              role: "admin",
+              status: "active",
+              createdAt: new Date().toISOString(),
+              lastLogin: new Date().toISOString(),
+              phone: "555-123-4567",
+              title: "Administrator",
+              specialty: null,
+              npi: null,
+              profileImage: "https://randomuser.me/api/portraits/men/1.jpg"
+            },
+            "2": {
+              id: "2",
+              email: "provider@example.com",
+              name: "Provider User",
+              role: "doctor",
+              status: "active",
+              profileImage: "https://randomuser.me/api/portraits/women/2.jpg"
+            },
+            "3": {
+              id: "3",
+              email: "staff@example.com",
+              name: "Staff User",
+              role: "nurse",
+              status: "active",
+              profileImage: "https://randomuser.me/api/portraits/women/3.jpg"
+            }
+          };
+          
+          // Try to find in mock users by ID
+          let mockUser = mockUsers[userIdToFetch];
+          
+          // If not found by ID, try by email
+          if (!mockUser) {
+            for (const id in mockUsers) {
+              if (mockUsers[id].email === userIdToFetch) {
+                mockUser = mockUsers[id];
+                break;
+              }
+            }
+          }
+          
+          // Also check in-memory users
+          let memoryUser = null;
+          for (const id in newUsers) {
+            if (id === userIdToFetch || newUsers[id].email === userIdToFetch) {
+              memoryUser = newUsers[id];
+              break;
+            }
+          }
+          
+          // If found in mock or memory, return it
+          if (mockUser || memoryUser) {
+            return {
+              statusCode: 200,
+              body: JSON.stringify({
+                success: true,
+                data: mockUser || memoryUser
+              }),
+              headers: createHeaders()
+            };
+          }
+          
+          // Not found anywhere
+          return {
+            statusCode: 404,
+            body: JSON.stringify({
+              success: false,
+              error: 'User not found'
+            }),
+            headers: createHeaders()
+          };
+        }
+        
+        // Format the MongoDB user for response
+        const userObj = dbUser as any;
+        const { _id, password, __v, ...rest } = userObj;
+        const formattedUser = { 
+          id: _id.toString(), 
+          ...rest,
+          // Add default profile image if none exists
+          profileImage: rest.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(rest.name)}&background=random`
+        };
+        
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            success: true,
+            data: formattedUser
+          }),
+          headers: createHeaders()
+        };
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            success: false,
+            error: 'Failed to fetch user profile',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          }),
+          headers: createHeaders()
+        };
+      }
+    }
+
     // Map routes to handlers
     const routes: Record<string, Record<string, Function>> = {
       '/patients': {

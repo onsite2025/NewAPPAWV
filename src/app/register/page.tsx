@@ -1,160 +1,244 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { registerWithEmail } from '@/lib/firebase';
 
 export default function RegisterPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
+  const [token, setToken] = useState('');
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isVerifying, setIsVerifying] = useState(true);
+  const [isValid, setIsValid] = useState(false);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [invitationData, setInvitationData] = useState<any>(null);
 
+  // Extract token and email from URL params
+  useEffect(() => {
+    const token = searchParams.get('token');
+    const email = searchParams.get('email');
+    
+    if (token && email) {
+      setToken(token);
+      setEmail(email);
+      verifyInvitation(token, email);
+    } else {
+      setIsVerifying(false);
+      setError('Invalid invitation link. Please contact your administrator.');
+    }
+  }, [searchParams]);
+
+  // Verify the invitation token
+  const verifyInvitation = async (token: string, email: string) => {
+    try {
+      const response = await fetch(`/.netlify/functions/api/verify-invitation?token=${token}&email=${encodeURIComponent(email)}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setIsValid(true);
+        setInvitationData(data.data);
+      } else {
+        setError(data.error || 'Invalid or expired invitation');
+      }
+    } catch (error) {
+      console.error('Error verifying invitation:', error);
+      setError('Failed to verify invitation. Please try again.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  // Handle registration form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     
-    // Validate password match
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
+    // Validate form
+    if (!name.trim()) {
+      setError('Name is required');
       return;
     }
     
-    // Validate password strength
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
     }
     
-    setLoading(true);
-
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    setError('');
+    
     try {
-      // Register with Firebase
-      await registerWithEmail(email, password);
-      router.push('/dashboard');
-    } catch (error: any) {
-      // Handle Firebase auth errors
-      let errorMessage = 'An unexpected error occurred. Please try again.';
+      const response = await fetch('/.netlify/functions/api/register-with-invitation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token,
+          email,
+          name,
+          password
+        }),
+      });
       
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'This email is already registered. Please use a different email or login.';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address format.';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Password is too weak. Please choose a stronger password.';
+      const data = await response.json();
+      
+      if (data.success) {
+        // Registration successful, redirect to login
+        router.push('/login?registered=true');
+      } else {
+        setError(data.error || 'Registration failed. Please try again.');
       }
-      
-      setError(errorMessage);
-      setLoading(false);
+    } catch (error) {
+      console.error('Error registering user:', error);
+      setError('Registration failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <header className="bg-primary-600 text-white p-4">
-        <div className="container mx-auto">
-          <Link href="/" className="text-xl font-bold">
-            Annual Wellness Visit
-          </Link>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
+      <div className="w-full max-w-md space-y-8">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold">Complete Registration</h1>
+          <p className="mt-2 text-gray-600">
+            Create your account to get started
+          </p>
         </div>
-      </header>
-
-      <main className="flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="card max-w-md w-full space-y-8">
-          <div>
-            <h2 className="text-center text-3xl font-bold text-gray-900">
-              Create an account
-            </h2>
+        
+        {isVerifying ? (
+          <div className="flex justify-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
           </div>
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4">
-              <p className="text-red-700">{error}</p>
-            </div>
-          )}
-          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-            <div className="space-y-6">
+        ) : isValid ? (
+          <div className="bg-white p-8 rounded-lg shadow-md">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {error && (
+                <div className="bg-red-50 p-4 rounded-md text-red-500">
+                  {error}
+                </div>
+              )}
+              
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email address
+                  Email
                 </label>
                 <input
                   id="email"
-                  name="email"
                   type="email"
-                  autoComplete="email"
-                  required
-                  className="form-input mt-1"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
+                  disabled
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Email address cannot be changed
+                </p>
+              </div>
+              
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                  Full Name
+                </label>
+                <input
+                  id="name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
+              
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                   Password
                 </label>
                 <input
                   id="password"
-                  name="password"
                   type="password"
-                  autoComplete="new-password"
-                  required
-                  className="form-input mt-1"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
+                  required
+                  minLength={6}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Password must be at least 6 characters long
-                </p>
               </div>
+              
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
                   Confirm Password
                 </label>
                 <input
                   id="confirmPassword"
-                  name="confirmPassword"
                   type="password"
-                  autoComplete="new-password"
-                  required
-                  className="form-input mt-1"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={loading}
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
-            </div>
-
-            <div>
-              <button
-                type="submit"
-                className={`btn-primary w-full ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
-                disabled={loading}
-              >
-                {loading ? 'Creating account...' : 'Create account'}
-              </button>
-            </div>
-          </form>
-          <div className="text-center">
-            <p className="text-sm text-gray-500">
-              Already have an account?{' '}
-              <Link href="/login" className="text-primary-600 hover:text-primary-500">
-                Sign in
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Role
+                </label>
+                <div className="mt-1 py-2 px-3 border border-gray-200 rounded-md bg-gray-50">
+                  {invitationData?.role === 'admin' && 'Administrator'}
+                  {invitationData?.role === 'doctor' && 'Doctor/Provider'}
+                  {invitationData?.role === 'nurse' && 'Nurse/Staff'}
+                  {!invitationData?.role && 'Staff'}
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Your role has been assigned by the administrator
+                </p>
+              </div>
+              
+              <div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Creating Account...' : 'Complete Registration'}
+                </button>
+              </div>
+            </form>
+            
+            <div className="mt-4 text-center">
+              <Link href="/login" className="text-sm text-blue-600 hover:text-blue-800">
+                Already have an account? Sign in
               </Link>
-            </p>
+            </div>
           </div>
-        </div>
-      </main>
-
-      <footer className="bg-gray-100 p-4">
-        <div className="container mx-auto text-center text-gray-600">
-          <p>&copy; {new Date().getFullYear()} Annual Wellness Visit Platform</p>
-        </div>
-      </footer>
+        ) : (
+          <div className="bg-white p-8 rounded-lg shadow-md">
+            <div className="text-center space-y-4">
+              <div className="text-red-500 text-xl">
+                {error || 'Invalid or expired invitation'}
+              </div>
+              <p>
+                Please contact your administrator to request a new invitation link.
+              </p>
+              <div className="mt-4">
+                <Link href="/login" className="text-blue-600 hover:text-blue-800">
+                  Go to Login
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 } 

@@ -32,11 +32,11 @@ interface PatientFormData {
   };
 }
 
-type EditPatientClientPageProps = {
-  params?: {
+interface EditPatientClientPageProps {
+  params: {
     id: string;
   };
-};
+}
 
 export default function EditPatientClientPage({ params: propParams }: EditPatientClientPageProps) {
   const routeParams = useParams();

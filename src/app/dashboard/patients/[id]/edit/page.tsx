@@ -14,6 +14,8 @@ export async function generateStaticParams() {
 }
 
 // Server Component for the edit patient page
-export default function Page({ params }: { params: { id: string } }) {
-  return <EditPatientClientPage params={params} />;
+export default function Page(props: {
+  params: { id: string }
+}) {
+  return <EditPatientClientPage params={props.params} />;
 } 

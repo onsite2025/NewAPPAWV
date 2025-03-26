@@ -12,6 +12,19 @@ import templateService from '@/services/templateService';
 import { v4 as uuidv4 } from 'uuid';
 import ErrorBoundary from '@/components/ErrorBoundary';
 
+// This function is required for static site generation with dynamic routes
+// It tells Next.js which paths to pre-render at build time
+export async function generateStaticParams() {
+  try {
+    // We'll pre-render a default placeholder page
+    // The actual data will be fetched client-side
+    return [{ id: 'placeholder' }];
+  } catch (error) {
+    console.error('Error generating static params:', error);
+    return [{ id: 'placeholder' }];
+  }
+}
+
 // Types and interfaces
 
 interface Option {

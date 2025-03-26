@@ -12,6 +12,19 @@ import templateService from '@/services/templateService';
 import patientService from '@/services/patientService';
 import { format } from 'date-fns';
 
+// This function is required for static site generation with dynamic routes
+// It tells Next.js which paths to pre-render at build time
+export async function generateStaticParams() {
+  try {
+    // We'll pre-render a default placeholder page
+    // The actual data will be fetched client-side
+    return [{ id: 'placeholder' }];
+  } catch (error) {
+    console.error('Error generating static params:', error);
+    return [{ id: 'placeholder' }];
+  }
+}
+
 // ErrorBoundary component to catch rendering errors
 class ErrorBoundary extends Component<{ children: ReactNode, fallback: ReactNode }> {
   state = { hasError: false, error: null };

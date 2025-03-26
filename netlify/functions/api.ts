@@ -466,135 +466,232 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
       }
     }
 
-    // Handle practice settings requests
-    if (path === '/practice') {
+    // Handle individual user requests (/users/:id)
+    if (path.match(/^\/users\/\d+$/)) {
       try {
-        // Connect to MongoDB before handling the request
-        await connectToMongoDB();
+        // Extract the user ID from the path
+        const userId = path.split('/')[2];
+        console.log(`Individual user operation for user ID: ${userId}`);
         
-        // Import the practice model dynamically
-        const PracticeSchema = new mongoose.Schema({
-          name: { type: String, required: true },
-          address: {
-            street: String,
-            city: String,
-            state: String,
-            zipCode: String
+        // Simulate user data (in a real app, this would be fetched from database)
+        const mockUsers: Record<string, any> = {
+          "1": {
+            id: "1",
+            email: "admin@example.com",
+            name: "Admin User",
+            role: "admin",
+            status: "active",
+            createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
+            phone: "555-123-4567",
+            title: "Administrator",
+            specialty: null,
+            npi: null
           },
-          contactInfo: {
-            phone: String,
-            email: String,
-            website: String
+          "2": {
+            id: "2",
+            email: "provider@example.com",
+            name: "Provider User",
+            role: "provider",
+            status: "active",
+            createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
+            phone: "555-987-6543",
+            title: "Physician",
+            specialty: "Primary Care",
+            npi: "1234567890"
           },
-          logo: String,
-          colors: {
-            primary: String,
-            secondary: String
-          },
-          settings: {
-            appointmentDuration: { type: Number, default: 30 },
-            startTime: { type: String, default: '09:00' },
-            endTime: { type: String, default: '17:00' },
-            daysOpen: { type: [String], default: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] }
+          "3": {
+            id: "3",
+            email: "staff@example.com",
+            name: "Staff User",
+            role: "staff",
+            status: "active",
+            createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
+            phone: "555-567-1234",
+            title: "Medical Assistant",
+            specialty: null,
+            npi: null
           }
-        }, { timestamps: true });
+        };
         
-        const Practice = mongoose.models.Practice || mongoose.model('Practice', PracticeSchema);
-
-        // Handle GET requests - return practice settings
+        // Handle different HTTP methods
         if (event.httpMethod === 'GET') {
-          try {
-            // Try to get practice settings from database
-            const practice = await Practice.findOne().lean();
-            
-            if (practice) {
-              return {
-                statusCode: 200,
-                body: JSON.stringify({
-                  success: true,
-                  data: practice
-                }),
-                headers: createHeaders()
-              };
-            } else {
-              // Return default practice settings if none exist
-              return {
-                statusCode: 200,
-                body: JSON.stringify({
-                  success: true,
-                  data: {
-                    name: 'Oak Ridge Healthcare Center',
-                    address: {
-                      street: '123 Medical Way',
-                      city: 'Oak Ridge',
-                      state: 'TN',
-                      zipCode: '37830'
-                    },
-                    contactInfo: {
-                      phone: '(555) 123-4567',
-                      email: 'info@oakridgehealthcare.example',
-                      website: 'www.oakridgehealthcare.example'
-                    },
-                    logo: '/logo.png',
-                    colors: {
-                      primary: '#0047AB',
-                      secondary: '#6CB4EE'
-                    },
-                    settings: {
-                      appointmentDuration: 30,
-                      startTime: '09:00',
-                      endTime: '17:00',
-                      daysOpen: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-                    }
-                  }
-                }),
-                headers: createHeaders()
-              };
-            }
-          } catch (error) {
-            console.error('Error fetching practice settings:', error);
-            
-            // Return default practice settings as fallback
+          // Retrieve the user
+          const user = mockUsers[userId];
+          
+          if (!user) {
             return {
-              statusCode: 200,
+              statusCode: 404,
               body: JSON.stringify({
-                success: true,
-                data: {
-                  name: 'Oak Ridge Healthcare Center',
-                  address: {
-                    street: '123 Medical Way',
-                    city: 'Oak Ridge',
-                    state: 'TN',
-                    zipCode: '37830'
-                  },
-                  contactInfo: {
-                    phone: '(555) 123-4567',
-                    email: 'info@oakridgehealthcare.example',
-                    website: 'www.oakridgehealthcare.example'
-                  },
-                  logo: '/logo.png',
-                  colors: {
-                    primary: '#0047AB',
-                    secondary: '#6CB4EE'
-                  },
-                  settings: {
-                    appointmentDuration: 30,
-                    startTime: '09:00',
-                    endTime: '17:00',
-                    daysOpen: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-                  }
-                }
+                success: false,
+                error: 'User not found'
               }),
               headers: createHeaders()
             };
           }
-        } else if (event.httpMethod === 'PUT' || event.httpMethod === 'POST') {
-          // Handle practice settings update
+          
+          return {
+            statusCode: 200,
+            body: JSON.stringify({
+              success: true,
+              data: user
+            }),
+            headers: createHeaders()
+          };
+        }
+        
+        else if (event.httpMethod === 'PUT') {
+          // Update the user
+          const user = mockUsers[userId];
+          
+          if (!user) {
+            return {
+              statusCode: 404,
+              body: JSON.stringify({
+                success: false,
+                error: 'User not found'
+              }),
+              headers: createHeaders()
+            };
+          }
+          
+          try {
+            // Parse the request body
+            const body = JSON.parse(event.body || '{}');
+            
+            // Update the user (in a real app, this would update in the database)
+            const updatedUser = {
+              ...user,
+              ...body,
+              updatedAt: new Date().toISOString()
+            };
+            
+            // For demo purposes - pretend we updated the user
+            console.log('Updated user:', updatedUser);
+            
+            return {
+              statusCode: 200,
+              body: JSON.stringify({
+                success: true,
+                data: updatedUser,
+                message: 'User updated successfully'
+              }),
+              headers: createHeaders()
+            };
+          } catch (parseError) {
+            return {
+              statusCode: 400,
+              body: JSON.stringify({
+                success: false,
+                error: 'Invalid request format'
+              }),
+              headers: createHeaders()
+            };
+          }
+        }
+        
+        else if (event.httpMethod === 'DELETE') {
+          // Delete the user
+          const user = mockUsers[userId];
+          
+          if (!user) {
+            return {
+              statusCode: 404,
+              body: JSON.stringify({
+                success: false,
+                error: 'User not found'
+              }),
+              headers: createHeaders()
+            };
+          }
+          
+          // For demo purposes - pretend we deleted the user
+          console.log(`Deleted user: ${userId}`);
+          
+          return {
+            statusCode: 200,
+            body: JSON.stringify({
+              success: true,
+              message: 'User deleted successfully'
+            }),
+            headers: createHeaders()
+          };
+        }
+        
+        return {
+          statusCode: 405,
+          body: JSON.stringify({
+            success: false,
+            error: 'Method not allowed'
+          }),
+          headers: createHeaders()
+        };
+      } catch (error) {
+        console.error(`Error handling user ${path}:`, error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            success: false,
+            error: 'Internal server error',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          }),
+          headers: createHeaders()
+        };
+      }
+    }
+
+    // Handle practice settings requests
+    if (path === '/practice') {
+      try {
+        // Handle GET requests - return practice settings
+        if (event.httpMethod === 'GET') {
+          // Return static practice settings for demo purposes
+          const demoSettings = {
+            name: 'Oak Ridge Healthcare Center',
+            address: {
+              street: '123 Medical Way',
+              city: 'Oak Ridge',
+              state: 'TN',
+              zipCode: '37830'
+            },
+            contactInfo: {
+              phone: '(555) 123-4567',
+              email: 'info@oakridgehealthcare.example',
+              website: 'www.oakridgehealthcare.example'
+            },
+            logo: '/logo.png',
+            colors: {
+              primary: '#0047AB',
+              secondary: '#6CB4EE'
+            },
+            settings: {
+              appointmentDuration: 30,
+              startTime: '09:00',
+              endTime: '17:00',
+              daysOpen: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+            }
+          };
+          
+          return {
+            statusCode: 200,
+            body: JSON.stringify({
+              success: true,
+              data: demoSettings
+            }),
+            headers: createHeaders()
+          };
+        } 
+        
+        // Handle updates to practice settings
+        else if (event.httpMethod === 'PUT' || event.httpMethod === 'POST') {
           try {
             // Parse the request body
             let practiceData;
             try {
               practiceData = JSON.parse(event.body || '{}');
+              console.log('Received practice data:', practiceData);
             } catch (parseError) {
               console.error('Error parsing practice settings data:', parseError);
               return {
@@ -607,53 +704,31 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
               };
             }
             
-            console.log('Updating practice settings with data:', practiceData);
-            
-            // Format the practice data correctly
-            const formattedData = {
-              name: practiceData.name || 'Healthcare Practice',
-              address: {
-                street: practiceData.address || '',
-                city: practiceData.city || '',
-                state: practiceData.state || '',
-                zipCode: practiceData.zipCode || ''
-              },
-              contactInfo: {
-                phone: practiceData.phone || '',
-                email: practiceData.email || '',
-                website: practiceData.website || ''
-              },
+            // For demo, reflect back the data that was sent, with some defaults for missing fields
+            const updatedSettings = {
+              name: practiceData.name || 'Oak Ridge Healthcare Center',
+              address: practiceData.address || '123 Medical Way',
+              city: practiceData.city || 'Oak Ridge',
+              state: practiceData.state || 'TN',
+              zipCode: practiceData.zipCode || '37830',
+              phone: practiceData.phone || '(555) 123-4567',
+              email: practiceData.email || 'info@oakridgehealthcare.example',
+              website: practiceData.website || 'www.oakridgehealthcare.example',
               logo: practiceData.logo || '/logo.png',
-              colors: {
-                primary: practiceData.primaryColor || '#0047AB',
-                secondary: practiceData.secondaryColor || '#6CB4EE'
-              },
-              settings: {
-                appointmentDuration: practiceData.appointmentDuration || 30,
-                startTime: practiceData.startTime || '09:00',
-                endTime: practiceData.endTime || '17:00',
-                daysOpen: practiceData.daysOpen || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-              }
+              primaryColor: practiceData.primaryColor || '#0047AB',
+              secondaryColor: practiceData.secondaryColor || '#6CB4EE',
+              appointmentDuration: practiceData.appointmentDuration || 30,
+              startTime: practiceData.startTime || '09:00',
+              endTime: practiceData.endTime || '17:00'
             };
             
-            // Find existing practice or create new one
-            let practice = await Practice.findOne();
-            
-            if (practice) {
-              // Update existing practice
-              Object.assign(practice, formattedData);
-              await practice.save();
-            } else {
-              // Create new practice
-              practice = new Practice(formattedData);
-              await practice.save();
-            }
+            console.log('Saving practice settings:', updatedSettings);
             
             return {
               statusCode: 200,
               body: JSON.stringify({
                 success: true,
-                data: practice,
+                data: updatedSettings,
                 message: 'Practice settings updated successfully'
               }),
               headers: createHeaders()

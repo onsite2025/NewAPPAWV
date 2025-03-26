@@ -1,10 +1,31 @@
 import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { safeConnectToDatabase, isBuildTime } from '@/lib/prerender-workaround';
+import { safeConnectToDatabase, isBuildTime, createMockModel } from '@/lib/prerender-workaround';
 import bcrypt from 'bcryptjs';
 
 // Using dynamic imports to prevent issues during build time
-let User: any;
+let User: any = null;
+
+// Initialize User model
+const initUserModel = async () => {
+  if (isBuildTime()) {
+    User = createMockModel('User');
+    return;
+  }
+  
+  try {
+    if (!User) {
+      const UserModule = await import('@/models/User');
+      User = UserModule.default;
+    }
+  } catch (error) {
+    console.error('Error importing User model:', error);
+    User = createMockModel('User');
+  }
+};
+
+// Initialize the model right away
+initUserModel();
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -26,18 +47,15 @@ export const authOptions: NextAuthOptions = {
             id: 'mock-id',
             email: credentials.email,
             name: 'Mock User',
-            role: 'user',
+            role: 'staff',
           };
         }
         
         try {
           await safeConnectToDatabase();
           
-          // Dynamically import User model only when needed
-          if (!User) {
-            const UserModule = await import('@/models/User');
-            User = UserModule.default;
-          }
+          // Make sure User model is initialized
+          await initUserModel();
           
           // Find user by email
           const user = await User.findOne({ email: credentials.email });

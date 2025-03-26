@@ -1,11 +1,12 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+// Define the interface for User document
 export interface IUser extends Document {
   name: string;
   email: string;
   password: string;
-  role: 'admin' | 'provider' | 'assistant';
+  role: 'admin' | 'provider' | 'staff';
   profileImage?: string;
   specialty?: string;
   npiNumber?: string;
@@ -16,14 +17,28 @@ export interface IUser extends Document {
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
-const UserSchema = new Schema<IUser>({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true, lowercase: true },
-  password: { type: String, required: true, select: false },
+// Define the User schema
+const UserSchema: Schema = new Schema({
+  name: { 
+    type: String, 
+    required: true 
+  },
+  email: { 
+    type: String, 
+    required: true, 
+    unique: true,
+    trim: true,
+    lowercase: true
+  },
+  password: { 
+    type: String, 
+    required: true, 
+    select: false
+  },
   role: { 
     type: String, 
-    enum: ['admin', 'provider', 'assistant'],
-    default: 'provider'
+    enum: ['admin', 'provider', 'staff'], 
+    default: 'staff' 
   },
   profileImage: String,
   specialty: String,
@@ -52,5 +67,11 @@ UserSchema.methods.comparePassword = async function(candidatePassword: string): 
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Create the model based on the schema
-export default mongoose.models.User || mongoose.model<IUser>('User', UserSchema); 
+// Use a function to create the model to prevent "OverwriteModelError"
+const getUserModel = (): Model<IUser> => {
+  // Check if the model already exists to prevent overwriting
+  return mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
+};
+
+// Export a function that safely returns the User model
+export default getUserModel(); 

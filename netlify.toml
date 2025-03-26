@@ -3,13 +3,6 @@
   publish = ".next"
   functions = "netlify/functions"
 
-[build.environment]
-  NODE_VERSION = "18"
-  NPM_VERSION = "9"
-  MONGODB_URI = "mongodb+srv://onsitepcn:Nf4Yd5d6zOGDR5zG@cluster2.nr0dy.mongodb.net/onsite?retryWrites=true&w=majority&appName=Cluster2"
-  NEXTAUTH_URL = "https://finalawv.netlify.app"
-  NEXTAUTH_SECRET = "your-nextauth-secret-key-here"
-
 [functions]
   node_bundler = "esbuild"
   external_node_modules = ["mongodb", "mongoose", "next-auth", "bcryptjs"]

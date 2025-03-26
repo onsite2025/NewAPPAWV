@@ -5,6 +5,11 @@ import mongoose from 'mongoose';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+// Static export configuration
+export const dynamic = 'auto';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
+
 // Practice Settings model schema
 const PracticeSettingsSchema = new mongoose.Schema({
   name: {

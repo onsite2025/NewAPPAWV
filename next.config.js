@@ -94,15 +94,23 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   
-  // Exclude certain paths from the static export
-  // This helps with NextAuth which requires server-side functionality
-  experimental: {
-    appDir: true
-  },
+  // Use trailing slash for better static hosting
+  trailingSlash: true,
   
-  // Specify which routes should not be statically generated
-  // The auth routes will be handled by Netlify's serverless functions
-  trailingSlash: true
+  // Define which routes should be excluded from static generation
+  // They will be handled by Netlify serverless functions
+  exportPathMap: async function(defaultPathMap) {
+    // Filter out API routes
+    const filteredMap = {};
+    
+    for (const [path, page] of Object.entries(defaultPathMap)) {
+      if (!path.startsWith('/api/')) {
+        filteredMap[path] = page;
+      }
+    }
+    
+    return filteredMap;
+  }
 };
 
 module.exports = nextConfig; 

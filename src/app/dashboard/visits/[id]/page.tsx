@@ -18,7 +18,12 @@ export const metadata: Metadata = {
 };
 
 // Make the component async - this is key for Server Components in Next.js App Router
-export default async function Page({ params }: { params: { id: string } }) {
+export default async function Page({
+  params,
+}: {
+  params: { id: string };
+  searchParams?: { [key: string]: string | string[] | undefined };
+}) {
   // Validate the ID parameter
   if (!params.id) {
     notFound();

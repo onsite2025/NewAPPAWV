@@ -28,11 +28,7 @@ const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true },
   password: { type: String, required: true },
-  role: { 
-    type: String, 
-    enum: ['admin', 'doctor', 'nurse'],
-    default: 'nurse' 
-  },
+  role: { type: String }, // Remove enum validation to accept any role
   profileImage: String,
   specialty: String,
   npiNumber: String,
@@ -1038,7 +1034,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
               id: newUserId,
               email: userData.email,
               name: userData.name,
-              role: mapRoleToValid(userData.role),
+              role: userData.role || 'staff', // Use role directly
               isActive: true,
               createdAt: new Date().toISOString()
             };
@@ -1074,7 +1070,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
                 // Generate a temporary password since it's required by the schema
                 password: 'temp' + Date.now(), // This would be hashed in a real app
                 name: userData.name,
-                role: mapRoleToValid(userData.role),
+                role: userData.role || 'staff', // Use role directly
                 isActive: true,
                 createdAt: new Date(),
                 // Store other fields from body if they exist
@@ -1122,7 +1118,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
                     
                     // Add custom claims for role
                     await admin.auth().setCustomUserClaims(firebaseUser.uid, {
-                      role: mapRoleToValid(userData.role)
+                      role: userData.role || 'staff'
                     });
                     
                     // Update the user with Firebase UID
@@ -1822,8 +1818,21 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
     if (path === '/simple-user-create') {
       try {
         // Parse request body
-        const userData = JSON.parse(event.body || '{}');
-        console.log('Simple user create with data:', userData);
+        let userData;
+        try {
+          userData = JSON.parse(event.body || '{}');
+          console.log('Simple user create with data:', userData);
+        } catch (err) {
+          console.error('Failed to parse request body:', err, 'Raw body:', event.body);
+          return {
+            statusCode: 400,
+            body: JSON.stringify({
+              success: false,
+              error: 'Invalid JSON in request body'
+            }),
+            headers: createHeaders()
+          };
+        }
         
         if (!userData.email || !userData.name) {
           return {
@@ -1851,9 +1860,9 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
         const userDocument = {
           email: userData.email,
           name: userData.name,
-          password: 'password123', // Should be properly hashed in production
-          role: 'user', // Try a different role than the ones we've been using
-          isActive: true,
+          password: userData.password || 'password123', // Should be properly hashed in production
+          role: userData.role || 'staff', // Use the provided role or default to staff
+          isActive: userData.isActive !== undefined ? userData.isActive : true,
           createdAt: new Date(),
           updatedAt: new Date()
         };

@@ -21,6 +21,9 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+[[plugins]]
+  package = "./netlify/build-plugins/ensure-build"
+
 # Handle API routes
 [[redirects]]
   from = "/api/*"
@@ -28,11 +31,11 @@
   status = 200
   force = true
 
-# Support client-side routing for Next.js App Router
+# Support client-side routing for Next.js App Router - fallback for /*
 [[redirects]]
   from = "/*"
-  to = "/404.html"
-  status = 404
+  to = "/index.html"
+  status = 200
 
 # Add headers for security and CORS
 [[headers]]

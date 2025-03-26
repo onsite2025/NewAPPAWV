@@ -27,8 +27,13 @@ let practiceSettings: any = null;
 const UserSchema = new mongoose.Schema({
   id: String,
   email: { type: String, required: true },
+  password: { type: String, required: true },
   name: { type: String, required: true },
-  role: { type: String, default: 'staff' },
+  role: { 
+    type: String, 
+    enum: ['admin', 'provider', 'staff'],
+    default: 'staff' 
+  },
   status: { type: String, default: 'pending' },
   createdAt: { type: Date, default: Date.now },
   lastLogin: Date,
@@ -42,7 +47,9 @@ const UserSchema = new mongoose.Schema({
   toJSON: { virtuals: true },
   toObject: { virtuals: true },
   // Explicitly set the collection name to match what's in MongoDB Atlas
-  collection: 'users'
+  collection: 'users',
+  // Make the schema less strict to accommodate existing data
+  strict: false
 });
 
 // Add a pre-save hook to ensure id is set
@@ -56,28 +63,20 @@ UserSchema.pre('save', function(next) {
 
 const PracticeSettingsSchema = new mongoose.Schema({
   name: String,
-  address: {
-    street: String,
-    city: String,
-    state: String,
-    zipCode: String
-  },
-  contactInfo: {
-    phone: String,
-    email: String,
-    website: String
-  },
+  address: { type: String, required: true },
+  city: { type: String, required: true },
+  state: { type: String, required: true },
+  zipCode: { type: String, required: true },
+  phone: { type: String, required: true },
+  email: { type: String, required: true },
+  website: String,
   logo: String,
-  colors: {
-    primary: String,
-    secondary: String
-  },
-  settings: {
-    appointmentDuration: Number,
-    startTime: String,
-    endTime: String,
-    daysOpen: [String]
-  },
+  primaryColor: String,
+  secondaryColor: String,
+  appointmentDuration: Number,
+  startTime: String,
+  endTime: String,
+  daysOpen: [String],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 }, {
@@ -85,7 +84,9 @@ const PracticeSettingsSchema = new mongoose.Schema({
   toJSON: { virtuals: true },
   toObject: { virtuals: true },
   // Explicitly set the collection name to match what's in MongoDB Atlas
-  collection: 'practicesettings'
+  collection: 'practicesettings',
+  // Make the schema less strict to accommodate existing data
+  strict: false
 });
 
 // Update timestamp on save
@@ -343,14 +344,21 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
         // Test creating documents
         const testUser = new User({
           email: `test-${Date.now()}@example.com`,
+          password: 'test-password-123',  // Required field
           name: 'Test User',
-          role: 'staff',
+          role: 'staff',  // Must be one of the enum values
           status: 'active',
           createdAt: new Date()
         });
         
         const testSettings = new PracticeSettings({
           name: `Test Practice ${Date.now()}`,
+          address: '123 Test Street',
+          city: 'Test City',
+          state: 'TS',
+          zipCode: '12345',
+          phone: '555-123-4567',
+          email: 'test@example.com',
           createdAt: new Date(),
           updatedAt: new Date()
         });
@@ -838,6 +846,8 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
               // Create a proper user document for MongoDB
               const userDoc = new User({
                 email: body.email,
+                // Generate a temporary password since it's required by the schema
+                password: 'temp' + Date.now(), // This would be hashed in a real app
                 name: body.name,
                 role: body.role || 'staff',
                 status: 'pending',
@@ -1283,28 +1293,20 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
           // Default settings
           const demoSettings = {
             name: 'Oak Ridge Healthcare Center',
-            address: {
-              street: '123 Medical Way',
-              city: 'Oak Ridge',
-              state: 'TN',
-              zipCode: '37830'
-            },
-            contactInfo: {
-              phone: '(555) 123-4567',
-              email: 'info@oakridgehealthcare.example',
-              website: 'www.oakridgehealthcare.example'
-            },
+            address: '123 Medical Way',
+            city: 'Oak Ridge',
+            state: 'TN',
+            zipCode: '37830',
+            phone: '(555) 123-4567',
+            email: 'info@oakridgehealthcare.example',
+            website: 'www.oakridgehealthcare.example',
             logo: '/logo.png',
-            colors: {
-              primary: '#0047AB',
-              secondary: '#6CB4EE'
-            },
-            settings: {
-              appointmentDuration: 30,
-              startTime: '09:00',
-              endTime: '17:00',
-              daysOpen: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-            }
+            primaryColor: '#0047AB',
+            secondaryColor: '#6CB4EE',
+            appointmentDuration: 30,
+            startTime: '09:00',
+            endTime: '17:00',
+            daysOpen: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
           };
           
           // Store default settings
@@ -1347,28 +1349,20 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
             // Update stored settings in memory
             const updatedSettings = {
               name: practiceData.name || (practiceSettings?.name || 'Oak Ridge Healthcare Center'),
-              address: {
-                street: practiceData.address?.street || (practiceSettings?.address?.street || '123 Medical Way'),
-                city: practiceData.address?.city || (practiceSettings?.address?.city || 'Oak Ridge'),
-                state: practiceData.address?.state || (practiceSettings?.address?.state || 'TN'),
-                zipCode: practiceData.address?.zipCode || (practiceSettings?.address?.zipCode || '37830')
-              },
-              contactInfo: {
-                phone: practiceData.contactInfo?.phone || (practiceSettings?.contactInfo?.phone || '(555) 123-4567'),
-                email: practiceData.contactInfo?.email || (practiceSettings?.contactInfo?.email || 'info@oakridgehealthcare.example'),
-                website: practiceData.contactInfo?.website || (practiceSettings?.contactInfo?.website || 'www.oakridgehealthcare.example')
-              },
+              address: practiceData.address || (practiceSettings?.address || '123 Medical Way'),
+              city: practiceData.city || (practiceSettings?.city || 'Oak Ridge'),
+              state: practiceData.state || (practiceSettings?.state || 'TN'),
+              zipCode: practiceData.zipCode || (practiceSettings?.zipCode || '37830'),
+              phone: practiceData.phone || (practiceSettings?.phone || '(555) 123-4567'),
+              email: practiceData.email || (practiceSettings?.email || 'info@oakridgehealthcare.example'),
+              website: practiceData.website || (practiceSettings?.website || 'www.oakridgehealthcare.example'),
               logo: practiceData.logo || (practiceSettings?.logo || '/logo.png'),
-              colors: {
-                primary: practiceData.colors?.primary || (practiceSettings?.colors?.primary || '#0047AB'),
-                secondary: practiceData.colors?.secondary || (practiceSettings?.colors?.secondary || '#6CB4EE')
-              },
-              settings: {
-                appointmentDuration: practiceData.settings?.appointmentDuration || (practiceSettings?.settings?.appointmentDuration || 30),
-                startTime: practiceData.settings?.startTime || (practiceSettings?.settings?.startTime || '09:00'),
-                endTime: practiceData.settings?.endTime || (practiceSettings?.settings?.endTime || '17:00'),
-                daysOpen: practiceData.settings?.daysOpen || (practiceSettings?.settings?.daysOpen || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])
-              },
+              primaryColor: practiceData.primaryColor || (practiceSettings?.primaryColor || '#0047AB'),
+              secondaryColor: practiceData.secondaryColor || (practiceSettings?.secondaryColor || '#6CB4EE'),
+              appointmentDuration: practiceData.appointmentDuration || (practiceSettings?.appointmentDuration || 30),
+              startTime: practiceData.startTime || (practiceSettings?.startTime || '09:00'),
+              endTime: practiceData.endTime || (practiceSettings?.endTime || '17:00'),
+              daysOpen: practiceData.daysOpen || (practiceSettings?.daysOpen || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']),
               updatedAt: new Date()
             };
             

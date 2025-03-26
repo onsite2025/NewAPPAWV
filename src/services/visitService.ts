@@ -229,8 +229,17 @@ const visitService = {
 
         // First check for the nested structure (which is what Netlify functions return)
         if (data.success === true && data.data && typeof data.data === 'object') {
-          console.log('Found visit in nested data structure');
-          data = data.data;
+          console.log('Found visit in nested success.data structure - extracting actual visit data');
+          // Check if the nested data has an ID before accepting it
+          const nestedData = data.data;
+          const nestedId = nestedData._id || nestedData.id || nestedData.visitId;
+          
+          if (nestedId) {
+            console.log(`Found visit with ID ${nestedId} in nested data structure`);
+            data = nestedData;
+          } else {
+            console.error('Nested data does not contain a valid ID:', nestedData);
+          }
         }
         
         // Be more flexible with ID field - it could be _id, id, or visitId

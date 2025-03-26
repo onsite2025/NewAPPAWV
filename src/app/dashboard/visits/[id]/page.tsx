@@ -30,6 +30,24 @@ export default function VisitDetailPage() {
         
         // Fetch visit data
         const visitData = await visitService.getVisitById(visitId);
+        console.log('Visit data loaded:', visitData);
+        
+        if (!visitData || !visitData._id) {
+          return (
+            <div className="flex flex-col items-center justify-center h-full w-full p-4">
+              <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
+                <h1 className="text-2xl font-bold text-red-500 mb-4">Visit Not Found</h1>
+                <p className="text-gray-600 mb-6">
+                  The visit you are looking for could not be found or may have been deleted.
+                </p>
+                <Link href="/dashboard/visits" className="btn-primary">
+                  Return to Visits
+                </Link>
+              </div>
+            </div>
+          );
+        }
+        
         setVisit(visitData);
         
         // Fetch template data if available

@@ -92,7 +92,16 @@ const userService = {
         throw new Error(error.error || 'Failed to fetch users');
       }
       
-      return await response.json();
+      // Parse the response
+      const responseData = await response.json();
+      
+      // Check if the response follows the success/data pattern
+      if (responseData.success && responseData.data) {
+        console.log('Received users data in success/data format');
+        return responseData.data;
+      }
+      
+      return responseData;
     } catch (error) {
       console.error('Error fetching users:', error);
       throw error;
@@ -110,7 +119,15 @@ const userService = {
         throw new Error(error.error || 'Failed to fetch user');
       }
       
-      return await response.json();
+      // Parse the response
+      const responseData = await response.json();
+      
+      // Check if the response follows the success/data pattern
+      if (responseData.success && responseData.data) {
+        return responseData.data;
+      }
+      
+      return responseData;
     } catch (error) {
       console.error(`Error fetching user ${id}:`, error);
       throw error;
@@ -128,7 +145,15 @@ const userService = {
         throw new Error(error.error || 'Failed to fetch user profile');
       }
       
-      return await response.json();
+      // Parse the response
+      const responseData = await response.json();
+      
+      // Check if the response follows the success/data pattern
+      if (responseData.success && responseData.data) {
+        return responseData.data;
+      }
+      
+      return responseData;
     } catch (error) {
       console.error('Error fetching user profile:', error);
       throw error;
@@ -152,7 +177,15 @@ const userService = {
         throw new Error(error.error || 'Failed to update profile');
       }
       
-      return await response.json();
+      // Parse the response
+      const responseData = await response.json();
+      
+      // Check if the response follows the success/data pattern
+      if (responseData.success && responseData.data) {
+        return responseData.data;
+      }
+      
+      return responseData;
     } catch (error) {
       console.error('Error updating user profile:', error);
       throw error;
@@ -176,7 +209,15 @@ const userService = {
         throw new Error(error.error || 'Failed to create user');
       }
       
-      return await response.json();
+      // Parse the response
+      const responseData = await response.json();
+      
+      // Check if the response follows the success/data pattern
+      if (responseData.success && responseData.data) {
+        return responseData.data;
+      }
+      
+      return responseData;
     } catch (error) {
       console.error('Error creating user:', error);
       throw error;
@@ -200,7 +241,15 @@ const userService = {
         throw new Error(error.error || 'Failed to update user');
       }
       
-      return await response.json();
+      // Parse the response
+      const responseData = await response.json();
+      
+      // Check if the response follows the success/data pattern
+      if (responseData.success && responseData.data) {
+        return responseData.data;
+      }
+      
+      return responseData;
     } catch (error) {
       console.error(`Error updating user ${id}:`, error);
       throw error;

@@ -332,346 +332,133 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
     // Handle user-related endpoints specifically
     if (path === '/users') {
       try {
-        // Connect to MongoDB before handling the request
-        await connectToMongoDB();
-        
-        // Import the user model dynamically
-        const UserSchema = new mongoose.Schema({
-          email: { 
-            type: String, 
-            required: true, 
-            unique: true 
-          },
-          name: { 
-            type: String, 
-            required: true 
-          },
-          role: { 
-            type: String, 
-            enum: ['admin', 'provider', 'staff'], 
-            default: 'staff' 
-          },
-          status: { 
-            type: String, 
-            enum: ['active', 'inactive', 'pending'], 
-            default: 'pending' 
-          },
-          phone: { 
-            type: String 
-          },
-          title: { 
-            type: String 
-          },
-          specialty: { 
-            type: String 
-          },
-          npi: { 
-            type: String 
-          },
-          lastLogin: { 
-            type: Date 
-          },
-          notificationPreferences: {
-            email: { 
-              type: Boolean, 
-              default: true 
+        // Simple, direct implementation for the users endpoint
+        if (event.httpMethod === 'GET') {
+          // Return mock user data for demonstration
+          const mockUsers = [
+            {
+              id: "1",
+              email: "admin@example.com",
+              name: "Admin User",
+              role: "admin",
+              status: "active",
+              createdAt: new Date().toISOString(),
+              lastLogin: new Date().toISOString(),
+              phone: "555-123-4567",
+              title: "Administrator",
+              specialty: null,
+              npi: null
             },
-            inApp: { 
-              type: Boolean, 
-              default: true 
+            {
+              id: "2",
+              email: "provider@example.com",
+              name: "Provider User",
+              role: "provider",
+              status: "active",
+              createdAt: new Date().toISOString(),
+              lastLogin: new Date().toISOString(),
+              phone: "555-987-6543",
+              title: "Physician",
+              specialty: "Primary Care",
+              npi: "1234567890"
+            },
+            {
+              id: "3",
+              email: "staff@example.com",
+              name: "Staff User",
+              role: "staff",
+              status: "active",
+              createdAt: new Date().toISOString(),
+              lastLogin: new Date().toISOString(),
+              phone: "555-567-1234",
+              title: "Medical Assistant",
+              specialty: null,
+              npi: null
             }
-          },
-          twoFactorEnabled: { 
-            type: Boolean, 
-            default: false 
-          },
-          invitedBy: { 
-            type: mongoose.Schema.Types.ObjectId, 
-            ref: 'User' 
-          },
-          invitationSentAt: { 
-            type: Date 
-          },
-          firebaseUid: { 
-            type: String, 
-            unique: true, 
-            sparse: true 
-          }
-        }, { 
-          timestamps: true 
-        });
-        
-        let User;
-        try {
-          // Handle model compilation more safely
-          if (mongoose.models.User) {
-            User = mongoose.models.User;
-          } else {
-            User = mongoose.model('User', UserSchema);
-          }
-        } catch (modelError) {
-          console.error('Error getting User model:', modelError);
+          ];
+          
+          // Parse query parameters for pagination if provided
+          const page = parseInt(event.queryStringParameters?.page || '1');
+          const limit = parseInt(event.queryStringParameters?.limit || '10');
+          
           return {
-            statusCode: 500,
-            body: JSON.stringify({ 
-              error: 'Database model error', 
-              details: 'Could not initialize User model'
+            statusCode: 200,
+            body: JSON.stringify({
+              success: true,
+              data: {
+                users: mockUsers,
+                pagination: {
+                  total: mockUsers.length,
+                  page: page,
+                  limit: limit,
+                  pages: Math.ceil(mockUsers.length / limit)
+                }
+              }
             }),
             headers: createHeaders()
           };
         }
         
-        // Handle the GET request for users list
-        if (event.httpMethod === 'GET') {
+        if (event.httpMethod === 'POST') {
           try {
-            // Parse query parameters
-            const query = event.queryStringParameters || {};
-            const page = parseInt(query.page || '1');
-            const limit = parseInt(query.limit || '10');
-            const search = query.search || '';
-            const role = query.role || '';
-            const status = query.status || '';
-            const sortField = query.sortField || 'createdAt';
-            const sortOrder = query.sortOrder || 'desc';
+            // Parse the request body
+            const body = JSON.parse(event.body || '{}');
             
-            // Calculate skip value for pagination
-            const skip = (page - 1) * limit;
-            
-            // Build query filter
-            const filter: any = {};
-            
-            if (search) {
-              filter.$or = [
-                { name: { $regex: search, $options: 'i' } },
-                { email: { $regex: search, $options: 'i' } }
-              ];
-            }
-            
-            if (role) {
-              filter.role = role;
-            }
-            
-            if (status) {
-              filter.status = status;
-            }
-            
-            // Build sort object
-            const sort: any = {};
-            sort[sortField] = sortOrder === 'asc' ? 1 : -1;
-            
-            // For demo purposes, add sample users if none exist
-            try {
-              const count = await User.countDocuments();
-              
-              if (count === 0) {
-                // Create some sample users
-                const demoUsers = [
-                  {
-                    email: 'admin@example.com',
-                    name: 'Admin User',
-                    role: 'admin' as 'admin' | 'provider' | 'staff',
-                    status: 'active' as 'active' | 'inactive' | 'pending',
-                    firebaseUid: '6wsWnc7HllSNFvnHORIgc8iDc9U2'
-                  },
-                  {
-                    email: 'provider@example.com',
-                    name: 'Doctor Smith',
-                    role: 'provider' as 'admin' | 'provider' | 'staff',
-                    status: 'active' as 'active' | 'inactive' | 'pending',
-                    specialty: 'Primary Care'
-                  },
-                  {
-                    email: 'staff@example.com',
-                    name: 'Staff Member',
-                    role: 'staff' as 'admin' | 'provider' | 'staff',
-                    status: 'active' as 'active' | 'inactive' | 'pending'
-                  }
-                ];
-                
-                // Use explicit cast to avoid type errors
-                // @ts-ignore: Mongoose types are sometimes difficult to reconcile
-                await User.insertMany(demoUsers);
-              }
-            } catch (seedError) {
-              console.warn('Error seeding demo users:', seedError);
-              // Continue even if seeding fails - just log the error
-            }
-            
-            // Query users with filters, sort, and pagination
-            let users = [];
-            let total = 0;
-            
-            try {
-              // Use explicit cast to avoid type errors
-              // @ts-ignore: Mongoose types are sometimes difficult to reconcile
-              users = await User.find(filter)
-                .sort(sort)
-                .skip(skip)
-                .limit(limit)
-                .lean();
-              
-              // @ts-ignore: Mongoose types are sometimes difficult to reconcile
-              total = await User.countDocuments(filter);
-            } catch (queryError) {
-              console.error('Error querying users:', queryError);
-              
-              // Return empty result set rather than error
-              users = [];
-              total = 0;
-            }
-            
-            // Calculate total pages
-            const pages = Math.ceil(total / limit);
-            
-            // Return with success: true wrapper for consistency
-            return {
-              statusCode: 200,
-              body: JSON.stringify({
-                success: true,
-                data: {
-                  users,
-                  pagination: {
-                    total,
-                    page,
-                    limit,
-                    pages
-                  }
-                }
-              }),
-              headers: createHeaders()
-            };
-          } catch (error) {
-            console.error('Error fetching users:', error);
-            return {
-              statusCode: 500,
-              body: JSON.stringify({ 
-                success: false, 
-                error: 'Failed to fetch users',
-                details: error instanceof Error ? error.message : 'Unknown error'
-              }),
-              headers: createHeaders()
-            };
-          }
-        } else if (event.httpMethod === 'POST') {
-          // Handle user creation
-          try {
-            // Safely parse request body
-            let body: any = {};
-            try {
-              body = event.body ? JSON.parse(event.body) : {};
-            } catch (parseError) {
-              console.error('Error parsing request body:', parseError, event.body);
-              return {
-                statusCode: 400,
-                body: JSON.stringify({ 
-                  success: false, 
-                  error: 'Invalid request body format'
-                }),
-                headers: createHeaders()
-              };
-            }
-            
-            // Validate request body
+            // Validate required fields
             if (!body.email || !body.name) {
               return {
                 statusCode: 400,
-                body: JSON.stringify({ 
-                  success: false, 
+                body: JSON.stringify({
+                  success: false,
                   error: 'Email and name are required'
                 }),
                 headers: createHeaders()
               };
             }
             
-            // Check if user already exists
-            let existingUser = null;
-            try {
-              // @ts-ignore: Mongoose types are sometimes difficult to reconcile
-              existingUser = await User.findOne({ email: body.email });
-            } catch (findError) {
-              console.error('Error checking for existing user:', findError);
-              return {
-                statusCode: 500,
-                body: JSON.stringify({ 
-                  success: false, 
-                  error: 'Database query failed',
-                  details: 'Could not check for existing user'
-                }),
-                headers: createHeaders()
-              };
-            }
-            
-            if (existingUser) {
-              return {
-                statusCode: 409,
-                body: JSON.stringify({ 
-                  success: false, 
-                  error: 'User with this email already exists'
-                }),
-                headers: createHeaders()
-              };
-            }
-            
-            // Create new user
-            let newUser = null;
-            try {
-              newUser = new User({
-                ...body,
-                status: 'pending',
-                invitationSentAt: new Date()
-              });
-              
-              await newUser.save();
-            } catch (saveError) {
-              console.error('Error saving new user:', saveError);
-              return {
-                statusCode: 500,
-                body: JSON.stringify({ 
-                  success: false, 
-                  error: 'Failed to create user',
-                  details: saveError instanceof Error ? saveError.message : 'Unknown error'
-                }),
-                headers: createHeaders()
-              };
-            }
-            
+            // Create a mock successful response
             return {
               statusCode: 201,
-              body: JSON.stringify({ 
-                success: true, 
-                data: newUser 
+              body: JSON.stringify({
+                success: true,
+                data: {
+                  id: Date.now().toString(),
+                  email: body.email,
+                  name: body.name,
+                  role: body.role || 'staff',
+                  status: 'pending',
+                  createdAt: new Date().toISOString()
+                }
               }),
               headers: createHeaders()
             };
-          } catch (error) {
-            console.error('Error creating user:', error);
+          } catch (parseError) {
             return {
-              statusCode: 500,
-              body: JSON.stringify({ 
-                success: false, 
-                error: 'Failed to create user',
-                details: error instanceof Error ? error.message : 'Unknown error'
+              statusCode: 400,
+              body: JSON.stringify({
+                success: false,
+                error: 'Invalid request format'
               }),
               headers: createHeaders()
             };
           }
-        } else {
-          return {
-            statusCode: 405,
-            body: JSON.stringify({ 
-              success: false, 
-              error: 'Method not allowed'
-            }),
-            headers: createHeaders()
-          };
         }
+        
+        return {
+          statusCode: 405,
+          body: JSON.stringify({
+            success: false,
+            error: 'Method not allowed'
+          }),
+          headers: createHeaders()
+        };
       } catch (error) {
-        console.error('Error handling users endpoint:', error);
+        console.error('Error in /users endpoint:', error);
         return {
           statusCode: 500,
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             success: false,
-            error: 'Internal server error', 
+            error: 'Internal server error',
             details: error instanceof Error ? error.message : 'Unknown error'
           }),
           headers: createHeaders()

@@ -17,13 +17,16 @@ export const metadata: Metadata = {
   description: 'View visit details and information',
 };
 
-// Make the component async - this is key for Server Components in Next.js App Router
-export default async function Page({
-  params,
-}: {
-  params: { id: string };
+// Define the page props type according to Next.js App Router conventions
+type PageProps = {
+  params: {
+    id: string;
+  };
   searchParams?: { [key: string]: string | string[] | undefined };
-}) {
+};
+
+// Make the component async - this is key for Server Components in Next.js App Router
+export default async function Page({ params }: PageProps) {
   // Validate the ID parameter
   if (!params.id) {
     notFound();

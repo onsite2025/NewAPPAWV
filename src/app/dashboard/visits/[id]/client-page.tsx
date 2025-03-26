@@ -12,7 +12,7 @@ import templateService from '@/services/templateService';
 import { format } from 'date-fns';
 
 interface VisitDetailClientPageProps {
-  params?: {
+  params: {
     id: string;
   };
 }

@@ -6,65 +6,18 @@
 [build.environment]
   NODE_VERSION = "18"
   NPM_VERSION = "9"
-  NEXT_TELEMETRY_DISABLED = "1"
   MONGODB_URI = "mongodb+srv://onsitepcn:Nf4Yd5d6zOGDR5zG@cluster2.nr0dy.mongodb.net/onsite?retryWrites=true&w=majority&appName=Cluster2"
-  NEXT_PUBLIC_FIREBASE_API_KEY = "AIzaSyCjVKYDelG6ASUS6EfYUtOnvJBYhMCA1Lo"
-  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "manusawv.firebaseapp.com"
-  NEXT_PUBLIC_FIREBASE_PROJECT_ID = "manusawv"
-  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = "manusawv.firebasestorage.app"
-  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "49788426717"
-  NEXT_PUBLIC_FIREBASE_APP_ID = "1:49788426717:web:ef1d243368f20cb8363e34"
-  NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID = "G-MKGBXDJZFT"
   NEXTAUTH_URL = "https://finalawv.netlify.app"
   NEXTAUTH_SECRET = "your-nextauth-secret-key-here"
-
-[build.processing]
-  skip_processing = true
 
 [functions]
   node_bundler = "esbuild"
   external_node_modules = ["mongodb", "mongoose", "next-auth", "bcryptjs"]
-  zip = true
-  included_files = []
-  excluded_files = ["**/*.test.js", "**/*.spec.js", "node_modules/**/.git/**"]
-
-[functions.auth]
-  included_files = ["src/lib/mongodb.ts", "src/lib/auth.ts", "src/models/User.ts", "src/lib/prerender-workaround.ts"]
-
-[functions.api]
-  included_files = ["src/lib/mongodb.ts", "src/models/*.ts", "src/lib/auth.ts", "src/lib/prerender-workaround.ts"]
-
-[[plugins]]
-  package = "./netlify-plugins/build-plugin"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
 [[redirects]]
-  from = "/api/auth/*"
-  to = "/.netlify/functions/auth/:splat"
-  status = 200
-  force = true
-
-[[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-  force = false
-
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Frame-Options = "DENY"
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"
-    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization" 
+  status = 200 

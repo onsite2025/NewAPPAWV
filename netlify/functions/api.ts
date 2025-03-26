@@ -40,7 +40,9 @@ const UserSchema = new mongoose.Schema({
 }, { 
   // This ensures _id is also available as a string in id field
   toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  toObject: { virtuals: true },
+  // Explicitly set the collection name to match what's in MongoDB Atlas
+  collection: 'users'
 });
 
 // Add a pre-save hook to ensure id is set
@@ -81,7 +83,9 @@ const PracticeSettingsSchema = new mongoose.Schema({
 }, {
   // Convert _id to string when returned as JSON
   toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  toObject: { virtuals: true },
+  // Explicitly set the collection name to match what's in MongoDB Atlas
+  collection: 'practicesettings'
 });
 
 // Update timestamp on save
@@ -308,6 +312,112 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
             error: 'Database test failed',
             details: error instanceof Error ? error.message : 'Unknown error',
             timestamp: new Date().toISOString()
+          }),
+          headers: createHeaders()
+        };
+      }
+    }
+
+    // Add a more detailed MongoDB test endpoint for our specific collections
+    if (path === '/test-collections') {
+      try {
+        await connectToMongoDB();
+        console.log('Connected to MongoDB');
+        
+        // Initialize our models
+        const { User, PracticeSettings } = getModels();
+        
+        // Log collection information
+        console.log('User model collection details:', {
+          name: User.collection.name,
+          namespace: User.collection.namespace,
+          modelName: User.modelName
+        });
+        
+        console.log('PracticeSettings model collection details:', {
+          name: PracticeSettings.collection.name,
+          namespace: PracticeSettings.collection.namespace,
+          modelName: PracticeSettings.modelName
+        });
+        
+        // Test creating documents
+        const testUser = new User({
+          email: `test-${Date.now()}@example.com`,
+          name: 'Test User',
+          role: 'staff',
+          status: 'active',
+          createdAt: new Date()
+        });
+        
+        const testSettings = new PracticeSettings({
+          name: `Test Practice ${Date.now()}`,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+        
+        // Save the documents
+        let userSaveResult, settingsSaveResult;
+        let userError, settingsError;
+        
+        try {
+          const savedUser = await testUser.save();
+          userSaveResult = {
+            success: true,
+            id: savedUser._id.toString(),
+            collection: User.collection.name
+          };
+        } catch (error) {
+          console.error('Error saving test user:', error);
+          userSaveResult = { success: false };
+          userError = error instanceof Error ? error.message : 'Unknown error';
+        }
+        
+        try {
+          const savedSettings = await testSettings.save();
+          settingsSaveResult = {
+            success: true,
+            id: savedSettings._id.toString(),
+            collection: PracticeSettings.collection.name
+          };
+        } catch (error) {
+          console.error('Error saving test practice settings:', error);
+          settingsSaveResult = { success: false };
+          settingsError = error instanceof Error ? error.message : 'Unknown error';
+        }
+        
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            success: true,
+            message: 'MongoDB collection test results',
+            details: {
+              mongodbUri: MONGODB_URI ? `${MONGODB_URI.substring(0, MONGODB_URI.indexOf('@'))}@[hidden]` : 'undefined',
+              models: {
+                User: {
+                  collection: User.collection.name,
+                  namespace: User.collection.namespace,
+                  saveResult: userSaveResult,
+                  error: userError
+                },
+                PracticeSettings: {
+                  collection: PracticeSettings.collection.name,
+                  namespace: PracticeSettings.collection.namespace,
+                  saveResult: settingsSaveResult,
+                  error: settingsError
+                }
+              }
+            }
+          }),
+          headers: createHeaders()
+        };
+      } catch (error) {
+        console.error('MongoDB collection test failed:', error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            success: false,
+            error: 'MongoDB collection test failed',
+            details: error instanceof Error ? error.message : 'Unknown error'
           }),
           headers: createHeaders()
         };
@@ -707,11 +817,14 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
             // Also save to MongoDB
             try {
               await connectToMongoDB();
+              console.log('Connected to MongoDB, attempting to save user');
               const { User } = getModels();
+              console.log('User model initialized with collection:', User.collection.name);
               
               // Check if user already exists
               const existingUser = await User.findOne({ email: body.email });
               if (existingUser) {
+                console.log('User with this email already exists:', body.email);
                 return {
                   statusCode: 409,
                   body: JSON.stringify({
@@ -736,13 +849,15 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
                 ...(body.npi && { npi: body.npi })
               });
               
+              console.log('User document created, about to save:', userDoc);
+              
               // Save to MongoDB - should automatically set id field via pre-save hook
               await userDoc.save();
               
               // Get the ID for response
               newUser.id = userDoc._id.toString();
               
-              console.log('User saved to MongoDB with ID:', userDoc._id);
+              console.log('User saved to MongoDB with ID:', userDoc._id, 'in collection:', User.collection.name);
               
               // Try to create Firebase Authentication user if available
               try {
@@ -1263,18 +1378,25 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
             // Save to MongoDB
             try {
               // Find if settings exist
+              console.log('Checking if practice settings exist in MongoDB');
+              const { PracticeSettings } = getModels();
+              console.log('PracticeSettings model initialized with collection:', PracticeSettings.collection.name);
+              
               let dbSettings = await PracticeSettings.findOne();
               
               if (dbSettings) {
                 // Update existing settings
+                console.log('Found existing practice settings, updating', dbSettings._id);
                 Object.assign(dbSettings, updatedSettings);
                 await dbSettings.save();
-                console.log('Updated practice settings in MongoDB');
+                console.log('Updated practice settings in MongoDB:', dbSettings._id);
               } else {
                 // Create new settings
+                console.log('No existing practice settings found, creating new');
                 dbSettings = new PracticeSettings(updatedSettings);
+                console.log('Practice settings document created, about to save', dbSettings);
                 await dbSettings.save();
-                console.log('Created new practice settings in MongoDB');
+                console.log('Created new practice settings in MongoDB:', dbSettings._id, 'in collection:', PracticeSettings.collection.name);
               }
               
               return {

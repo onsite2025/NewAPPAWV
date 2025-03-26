@@ -1,15 +1,48 @@
 import { NextResponse } from 'next/server';
-import connectToDatabase from '@/lib/mongodb';
+import { safeConnectToDatabase, isBuildTime, createMockModel } from '@/lib/prerender-workaround';
 import mongoose from 'mongoose';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
-// Get the User model
-const User = mongoose.models.User || mongoose.model('User');
+// Add dynamic export configuration for static rendering compatibility
+export const dynamic = 'auto';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
+
+// Proper User model import with build-time safety
+let User: any = null;
+
+// Initialize User model safely
+const initUserModel = async () => {
+  if (isBuildTime()) {
+    // Use mock model during build
+    User = createMockModel('User');
+    return;
+  }
+  
+  try {
+    // Dynamically import User model
+    if (!User) {
+      const UserModule = await import('@/models/User');
+      User = UserModule.default;
+    }
+  } catch (error) {
+    console.error('Error importing User model:', error);
+    User = createMockModel('User');
+  }
+};
 
 // Helper function to check if the user has admin role
 const isUserAdmin = async (session: any) => {
   if (!session?.user?.email) return false;
+  
+  // Skip DB lookup during build
+  if (isBuildTime()) {
+    return true; // Mock admin status during build
+  }
+  
+  // Ensure User model is initialized
+  await initUserModel();
   
   const user = await User.findOne({ email: session.user.email });
   return user?.role === 'admin';
@@ -18,8 +51,11 @@ const isUserAdmin = async (session: any) => {
 // POST /api/users/invite - Send invitation to a new user
 export async function POST(request: Request) {
   try {
-    // Connect to the database
-    await connectToDatabase();
+    // Connect to the database safely
+    await safeConnectToDatabase();
+    
+    // Initialize User model
+    await initUserModel();
     
     // Get the user session
     const session = await getServerSession(authOptions);

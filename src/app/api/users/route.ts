@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import connectToDatabase from '@/lib/mongodb';
+import { safeConnectToDatabase, isBuildTime, createMockModel } from '@/lib/prerender-workaround';
 import mongoose from 'mongoose';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
@@ -9,78 +9,117 @@ export const dynamic = 'auto';
 export const fetchCache = 'force-no-store';
 export const revalidate = 0;
 
-// User model schema
-const UserSchema = new mongoose.Schema({
-  email: { 
-    type: String, 
-    required: true, 
-    unique: true 
-  },
-  name: { 
-    type: String, 
-    required: true 
-  },
-  role: { 
-    type: String, 
-    enum: ['admin', 'provider', 'staff'], 
-    default: 'staff' 
-  },
-  status: { 
-    type: String, 
-    enum: ['active', 'inactive', 'pending'], 
-    default: 'pending' 
-  },
-  phone: { 
-    type: String 
-  },
-  title: { 
-    type: String 
-  },
-  specialty: { 
-    type: String 
-  },
-  npi: { 
-    type: String 
-  },
-  lastLogin: { 
-    type: Date 
-  },
-  notificationPreferences: {
-    email: { 
-      type: Boolean, 
-      default: true 
-    },
-    inApp: { 
-      type: Boolean, 
-      default: true 
-    }
-  },
-  twoFactorEnabled: { 
-    type: Boolean, 
-    default: false 
-  },
-  invitedBy: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User' 
-  },
-  invitationSentAt: { 
-    type: Date 
-  },
-  firebaseUid: { 
-    type: String, 
-    unique: true, 
-    sparse: true 
-  } // For linking with Firebase Auth
-}, { 
-  timestamps: true 
-});
+// Proper User model import with build-time safety
+let User: any = null;
 
-// Get the User model
-const User = mongoose.models.User || mongoose.model('User', UserSchema);
+// Initialize User model safely
+const initUserModel = async () => {
+  if (isBuildTime()) {
+    // Use mock model during build
+    User = createMockModel('User');
+    return;
+  }
+  
+  try {
+    // Try to use the existing import first
+    if (!User) {
+      try {
+        // Dynamically import User model
+        const UserModule = await import('@/models/User');
+        User = UserModule.default;
+      } catch (importError) {
+        console.error('Error importing User model:', importError);
+        
+        // Define schema only if needed
+        const UserSchema = new mongoose.Schema({
+          email: { 
+            type: String, 
+            required: true, 
+            unique: true 
+          },
+          name: { 
+            type: String, 
+            required: true 
+          },
+          role: { 
+            type: String, 
+            enum: ['admin', 'provider', 'staff'], 
+            default: 'staff' 
+          },
+          status: { 
+            type: String, 
+            enum: ['active', 'inactive', 'pending'], 
+            default: 'pending' 
+          },
+          phone: { 
+            type: String 
+          },
+          title: { 
+            type: String 
+          },
+          specialty: { 
+            type: String 
+          },
+          npi: { 
+            type: String 
+          },
+          lastLogin: { 
+            type: Date 
+          },
+          notificationPreferences: {
+            email: { 
+              type: Boolean, 
+              default: true 
+            },
+            inApp: { 
+              type: Boolean, 
+              default: true 
+            }
+          },
+          twoFactorEnabled: { 
+            type: Boolean, 
+            default: false 
+          },
+          invitedBy: { 
+            type: mongoose.Schema.Types.ObjectId, 
+            ref: 'User' 
+          },
+          invitationSentAt: { 
+            type: Date 
+          },
+          firebaseUid: { 
+            type: String, 
+            unique: true, 
+            sparse: true 
+          }
+        }, { 
+          timestamps: true 
+        });
+        
+        // Create the model only if it doesn't exist
+        User = mongoose.models.User || mongoose.model('User', UserSchema);
+      }
+    }
+  } catch (error) {
+    console.error('Error initializing User model:', error);
+    User = createMockModel('User');
+  }
+};
+
+// Initialize right away
+initUserModel();
 
 // Helper function to check if the user has admin role
 const isUserAdmin = async (session: any) => {
   if (!session?.user?.email) return false;
+  
+  // Skip DB lookup during build
+  if (isBuildTime()) {
+    return true; // Mock admin status during build
+  }
+  
+  // Ensure User model is initialized
+  await initUserModel();
   
   const user = await User.findOne({ email: session.user.email });
   return user?.role === 'admin';
@@ -90,6 +129,14 @@ const isUserAdmin = async (session: any) => {
 const isUserAdminOrProvider = async (session: any) => {
   if (!session?.user?.email) return false;
   
+  // Skip DB lookup during build
+  if (isBuildTime()) {
+    return true; // Mock admin/provider status during build
+  }
+  
+  // Ensure User model is initialized
+  await initUserModel();
+  
   const user = await User.findOne({ email: session.user.email });
   return user?.role === 'admin' || user?.role === 'provider';
 };
@@ -97,8 +144,11 @@ const isUserAdminOrProvider = async (session: any) => {
 // GET /api/users - Get all users (admin and provider only)
 export async function GET(request: Request) {
   try {
-    // Connect to the database
-    await connectToDatabase();
+    // Connect to the database safely
+    await safeConnectToDatabase();
+    
+    // Initialize User model
+    await initUserModel();
     
     // Get the user session
     const session = await getServerSession(authOptions);
@@ -118,6 +168,14 @@ export async function GET(request: Request) {
         { error: 'Unauthorized. You do not have permission to access this resource.' },
         { status: 403 }
       );
+    }
+
+    // For build time, return mock data
+    if (isBuildTime()) {
+      return NextResponse.json({
+        users: [{ name: 'Mock User', email: 'mock@example.com', role: 'admin' }],
+        pagination: { total: 1, page: 1, limit: 10, pages: 1 }
+      });
     }
     
     // Get query parameters for pagination and filtering
@@ -190,7 +248,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     // Connect to the database
-    await connectToDatabase();
+    await safeConnectToDatabase();
     
     // Get the user session
     const session = await getServerSession(authOptions);

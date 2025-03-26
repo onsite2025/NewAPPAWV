@@ -225,6 +225,21 @@ const initializeFirebase = async () => {
   }
 };
 
+// Helper function to map UI roles to valid MongoDB enum values
+const mapRoleToValid = (role: string | undefined): string => {
+  if (!role) return 'nurse'; // Default
+  
+  // Map to expected enum values
+  switch(role.toLowerCase()) {
+    case 'admin': return 'admin';
+    case 'provider': 
+    case 'doctor': return 'doctor';
+    case 'staff':
+    case 'nurse':
+    default: return 'nurse';
+  }
+};
+
 const handler: Handler = async (event: HandlerEvent, context: HandlerContext): Promise<HandlerResponse> => {
   // Set function timeout
   context.callbackWaitsForEmptyEventLoop = false;
@@ -981,28 +996,14 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
             console.log('POST /users raw body:', event.body);
             
             // Parse the request body
-            let body = {};
-            try {
-              if (event.body) {
-                body = JSON.parse(event.body);
-              }
-            } catch (parseError) {
-              console.error('Error parsing request body:', parseError);
-              return {
-                statusCode: 400,
-                body: JSON.stringify({
-                  success: false,
-                  error: 'Invalid JSON in request body'
-                }),
-                headers: createHeaders()
-              };
-            }
-            
+            const body = JSON.parse(event.body || '{}');
             console.log('Received user creation request with data:', JSON.stringify(body, null, 2));
             
             // Check for different data formats - UI might be sending data differently
             // Some UIs wrap the user data in a 'user' or 'data' field
-            const userData = body.user || body.data || body;
+            // Use TypeScript type assertion to avoid type errors
+            const bodyAsAny = body as any;
+            const userData = bodyAsAny.user || bodyAsAny.data || body;
             console.log('Extracted user data:', JSON.stringify(userData, null, 2));
             
             // If no data provided, return error
@@ -1037,7 +1038,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
               id: newUserId,
               email: userData.email,
               name: userData.name,
-              role: userData.role || 'nurse',
+              role: mapRoleToValid(userData.role),
               isActive: true,
               createdAt: new Date().toISOString()
             };
@@ -1071,33 +1072,17 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
               const userDoc = new User({
                 email: userData.email,
                 // Generate a temporary password since it's required by the schema
-                password: userData.password || `temp-${Date.now()}`, // This would be hashed in a real app
+                password: 'temp' + Date.now(), // This would be hashed in a real app
                 name: userData.name,
-                // Map role values to valid enum values
                 role: mapRoleToValid(userData.role),
                 isActive: true,
-                // Map other fields to the correct schema fields
-                ...(userData.specialty && { specialty: userData.specialty }),
-                ...(userData.npi && { npiNumber: userData.npi }),
-                ...(userData.profileImage && { profileImage: userData.profileImage }),
                 createdAt: new Date(),
-                updatedAt: new Date()
+                // Store other fields from body if they exist
+                ...(userData.phone && { phone: userData.phone }),
+                ...(userData.title && { title: userData.title }),
+                ...(userData.specialty && { specialty: userData.specialty }),
+                ...(userData.npi && { npiNumber: userData.npi })
               });
-              
-              // Helper function to map UI role values to valid MongoDB enum values
-              function mapRoleToValid(role) {
-                if (!role) return 'nurse'; // Default
-                
-                // Map to expected enum values
-                switch(role.toLowerCase()) {
-                  case 'admin': return 'admin';
-                  case 'provider': 
-                  case 'doctor': return 'doctor';
-                  case 'staff':
-                  case 'nurse':
-                  default: return 'nurse';
-                }
-              }
               
               console.log('User document created, about to save:', JSON.stringify(userDoc, null, 2));
               
@@ -1137,7 +1122,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext): P
                     
                     // Add custom claims for role
                     await admin.auth().setCustomUserClaims(firebaseUser.uid, {
-                      role: userData.role || 'nurse'
+                      role: mapRoleToValid(userData.role)
                     });
                     
                     // Update the user with Firebase UID

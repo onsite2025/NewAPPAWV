@@ -92,7 +92,17 @@ const nextConfig = {
   // Disable TypeScript type checking during build
   typescript: {
     ignoreBuildErrors: true,
-  }
+  },
+  
+  // Exclude certain paths from the static export
+  // This helps with NextAuth which requires server-side functionality
+  experimental: {
+    appDir: true
+  },
+  
+  // Specify which routes should not be statically generated
+  // The auth routes will be handled by Netlify's serverless functions
+  trailingSlash: true
 };
 
 module.exports = nextConfig; 

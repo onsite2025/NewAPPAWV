@@ -14,8 +14,7 @@ export async function generateStaticParams() {
 }
 
 // Server Component for the edit patient page
-export default function Page(props: {
-  params: { id: string }
-}) {
+// Using any type to avoid Next.js type constraints conflicts
+export default function Page(props: any) {
   return <EditPatientClientPage params={props.params} />;
 } 

@@ -18,36 +18,46 @@
   NEXTAUTH_URL = "https://finalawv.netlify.app"
   NEXTAUTH_SECRET = "your-nextauth-secret-key-here"
 
-# Custom build plugin to optimize function size
+[build.processing]
+  skip_processing = true
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["mongodb", "mongoose", "next-auth", "bcryptjs"]
+  zip = true
+  included_files = []
+  excluded_files = ["**/*.test.js", "**/*.spec.js", "node_modules/**/.git/**"]
+
+[functions.auth]
+  included_files = ["src/lib/mongodb.ts", "src/lib/auth.ts", "src/models/User.ts", "src/lib/prerender-workaround.ts"]
+
+[functions.api]
+  included_files = ["src/lib/mongodb.ts", "src/models/*.ts", "src/lib/auth.ts", "src/lib/prerender-workaround.ts"]
+
 [[plugins]]
   package = "./netlify-plugins/build-plugin"
 
-# Next.js specific plugin
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Specifically handle NextAuth routes
 [[redirects]]
   from = "/api/auth/*"
   to = "/.netlify/functions/auth/:splat"
   status = 200
   force = true
 
-# Handle other API routes
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
   force = true
 
-# Support client-side routing for Next.js App Router - fallback for /*
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
   force = false
 
-# Add headers for security and CORS
 [[headers]]
   for = "/*"
   [headers.values]
@@ -57,27 +67,4 @@
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization"
-
-# Function optimization settings
-[functions]
-  node_bundler = "esbuild"
-  # Include only necessary external dependencies
-  external_node_modules = ["mongodb", "mongoose", "next-auth", "bcryptjs"]
-  # Set zip function to true to compress functions
-  zip = true
-  # Reduce function size by excluding unnecessary files
-  included_files = []
-  excluded_files = ["**/*.test.js", "**/*.spec.js", "node_modules/**/.git/**"]
-  
-  # Specific configuration for the auth function
-  [functions.auth]
-    included_files = ["src/lib/mongodb.ts", "src/lib/auth.ts", "src/models/User.ts", "src/lib/prerender-workaround.ts"]
-    
-  # Specific configuration for the api function 
-  [functions.api]
-    included_files = ["src/lib/mongodb.ts", "src/models/*.ts", "src/lib/auth.ts", "src/lib/prerender-workaround.ts"]
-
-# Optimize build settings
-[build.processing]
-  skip_processing = true 
+    Access-Control-Allow-Headers = "Content-Type, Authorization" 

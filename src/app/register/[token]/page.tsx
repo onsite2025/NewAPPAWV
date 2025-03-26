@@ -4,6 +4,14 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+// This function is required for static site generation with dynamic routes
+export function generateStaticParams() {
+  // For static export, we need to provide a list of possible token values
+  // Since these are dynamic and generated at runtime, we'll provide a placeholder
+  // that will allow the page to be built statically
+  return [{ token: 'placeholder-token' }];
+}
+
 export default function RegisterWithTokenPage({ params }: { params: { token: string } }) {
   const router = useRouter();
   const { token } = params;

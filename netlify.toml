@@ -28,13 +28,12 @@
   status = 200
   force = true
 
-# Handle SPA routing for Next.js (single rule, no conflicting redirects)
+# Support client-side routing for Next.js App Router
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
   force = false
-  conditions = {Response = {status = [404]}}
 
 # Add headers for security and CORS
 [[headers]]

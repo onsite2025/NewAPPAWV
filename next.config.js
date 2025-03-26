@@ -53,17 +53,6 @@ const nextConfig = {
   // Set a static build ID to improve caching
   generateBuildId: async () => {
     return 'awv-build'
-  },
-  
-  // Skip specific pages from static generation
-  exportPathMap: async function (
-    defaultPathMap,
-    { dev, dir, outDir, distDir, buildId }
-  ) {
-    return {
-      ...defaultPathMap,
-      '/register': { page: '/register' },
-    }
   }
 };
 

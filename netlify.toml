@@ -1,6 +1,11 @@
 [build]
   command = "npm run build"
   publish = ".next"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["mongodb", "mongoose", "next-auth", "bcryptjs"]
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -9,6 +14,7 @@
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/*"

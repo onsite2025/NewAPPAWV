@@ -2,9 +2,10 @@ import mongoose from 'mongoose';
 import TemplateModel from '@/models/Template';
 import { uuidv4 } from '@/utils/uuid';
 
-// Configuration for static export
-export const dynamic = 'force-dynamic';
-export const revalidate = 0; // This means always revalidate
+// Static export configuration - changed from force-dynamic to auto
+export const dynamic = 'auto';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 

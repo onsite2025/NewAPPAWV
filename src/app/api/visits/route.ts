@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import mongoose from 'mongoose';
 
-// Add revalidate configuration for static export
-export const dynamic = 'force-dynamic';
+// Static export configuration - changed from force-dynamic to auto
+export const dynamic = 'auto';
+export const fetchCache = 'force-no-store';
 export const revalidate = 0; // This means always revalidate
 
 // Define Visit schema

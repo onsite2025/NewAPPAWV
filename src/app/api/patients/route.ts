@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import mongoose from 'mongoose';
 
-// Configuration for static export
-export const dynamic = 'force-dynamic';
-export const revalidate = 0; // This means always revalidate
+// Static export configuration - changed from force-dynamic to auto
+export const dynamic = 'auto';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
 
 // Define Patient schema
 const PatientSchema = new mongoose.Schema({

@@ -3,9 +3,10 @@ import connectToDatabase from '@/lib/mongodb';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 
-// Configuration for static export
-export const dynamic = 'force-dynamic';
-export const revalidate = 0; // This means always revalidate
+// Static export configuration - changed from force-dynamic to auto
+export const dynamic = 'auto';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
 
 // Define a response function to standardize all API responses
 function apiResponse(data: any = null, status = 200, error: string | null = null) {

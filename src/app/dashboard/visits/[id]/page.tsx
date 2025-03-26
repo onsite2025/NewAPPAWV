@@ -27,14 +27,10 @@ export const metadata: Metadata = {
   description: 'View visit details and information',
 };
 
-// Export the client component as the default export of this page
-// Using the standard Next.js page props pattern
-export default function Page({
-  params,
-  searchParams,
-}: {
-  params: Params;
-  searchParams: { [key: string]: string | string[] | undefined };
-}) {
-  return <VisitDetailClientPage params={params} />;
+// Simpler approach: Use React.FC type and make the component async
+// This resolves issues with Promise expectations in Next.js types
+export default async function Page(props: { params: { id: string } }) {
+  // With an async component, we can await any data fetching here if needed
+  // For now, we just pass the params to the client component
+  return <VisitDetailClientPage params={props.params} />;
 } 

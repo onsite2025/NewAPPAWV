@@ -41,6 +41,13 @@ const nextConfig = {
       };
     }
     return config;
+  },
+  
+  // Disable static optimization to prevent issues with client-side hooks
+  reactStrictMode: true,
+  swcMinify: true,
+  compiler: {
+    styledComponents: true,
   }
 };
 

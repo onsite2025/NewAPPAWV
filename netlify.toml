@@ -28,7 +28,12 @@
   status = 200
   force = true
 
-# Handle SPA routing
+# Handle SPA routing for Next.js
+[[redirects]]
+  from = "/*"
+  to = "/404.html"
+  status = 404
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

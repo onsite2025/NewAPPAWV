@@ -1,12 +1,6 @@
 [build]
   command = "npm run build"
   publish = ".next"
-  functions = "netlify/functions"
-
-[functions]
-  node_bundler = "esbuild"
-  external_node_modules = ["mongodb", "mongoose", "next-auth", "bcryptjs"]
-  zip = true
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

@@ -3,8 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 const nextConfig = {
-  // Static export mode for Netlify deployment
-  output: 'export',
+  // Remove static export mode to allow API routes to work properly
+  // output: 'export',
   
   // Disable image optimization for improved build compatibility
   images: {

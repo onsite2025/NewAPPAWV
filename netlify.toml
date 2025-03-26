@@ -1,6 +1,6 @@
 [build]
   command = "npm run build"
-  publish = "out"
+  publish = ".next"
   functions = "netlify/functions"
 
 [build.environment]
@@ -40,6 +40,7 @@
   from = "/*"
   to = "/index.html"
   status = 200
+  force = false
 
 # Add headers for security and CORS
 [[headers]]

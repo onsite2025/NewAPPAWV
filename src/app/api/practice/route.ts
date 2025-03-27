@@ -6,9 +6,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
 // Static export configuration
-export const dynamic = 'auto';
+export const dynamic = 'force-static';
 export const fetchCache = 'force-no-store';
-export const revalidate = 0;
+export const revalidate = 3600; // Revalidate every hour
 
 // Practice Settings model schema
 const PracticeSettingsSchema = new mongoose.Schema({

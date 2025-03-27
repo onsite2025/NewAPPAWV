@@ -1,10 +1,10 @@
 import NextAuth from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-// Static export configuration - changed from force-dynamic to auto
-export const dynamic = 'auto';
+// Static export configuration
+export const dynamic = 'force-static';
 export const fetchCache = 'force-no-store';
-export const revalidate = 0;
+export const revalidate = 3600; // Revalidate every hour
 
 const handler = NextAuth(authOptions);
 

@@ -6,10 +6,10 @@ import { authOptions } from '@/lib/auth';
 import mongoose from 'mongoose';
 import { uuidv4 } from '@/utils/uuid';
 
-// Static export configuration - changed from force-dynamic to auto
-export const dynamic = 'auto';
+// Static export configuration
+export const dynamic = 'force-static';
 export const fetchCache = 'force-no-store';
-export const revalidate = 0;
+export const revalidate = 3600; // Revalidate every hour
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 

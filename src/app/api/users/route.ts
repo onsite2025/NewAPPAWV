@@ -4,10 +4,10 @@ import mongoose from 'mongoose';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
-// Update static export configuration
-export const dynamic = 'auto';
+// Static export configuration
+export const dynamic = 'force-static';
 export const fetchCache = 'force-no-store';
-export const revalidate = 0;
+export const revalidate = 3600; // Revalidate every hour
 
 // Proper User model import with build-time safety
 let User: any = null;

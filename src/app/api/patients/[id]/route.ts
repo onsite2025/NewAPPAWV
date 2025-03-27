@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import mongoose from 'mongoose';
 
-// Static export configuration - changed from force-dynamic to auto
-export const dynamic = 'auto';
+// Static export configuration
+export const dynamic = 'force-static';
 export const fetchCache = 'force-no-store';
-export const revalidate = 0;
+export const revalidate = 3600; // Revalidate every hour
 
 // Use the same Patient model from the main patients route
 const PatientSchema = new mongoose.Schema({
